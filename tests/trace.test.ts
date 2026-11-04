@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { E, S, SE } from '../src/core/dir';
+import { parseGrid } from '../src/core/level';
 import { segments, trace } from '../src/core/trace';
 import { board } from './helpers';
 
@@ -82,18 +83,24 @@ describe('trace', () => {
     let seed = 12345;
     const rand = (n: number) => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) % n);
     const toks = () => {
-      const r = rand(20);
-      if (r < 9) return '.';
-      if (r < 11) return '#';
-      if (r < 13) return `E${'rgb'[rand(3)]}${rand(8)}`;
-      if (r < 15) return `T${'rgbycmw'[rand(7)]}`;
-      return `M${rand(8)}`;
+      const r = rand(30);
+      if (r < 11) return '.';
+      if (r < 14) return '#';
+      if (r < 16) return `E${'rgbw'[rand(4)]}${rand(8)}`;
+      if (r < 18) return `T${'rgbycmw'[rand(7)]}`;
+      if (r < 21) return `M${rand(8)}`;
+      if (r < 23) return `S${rand(8)}`;
+      if (r < 24) return 'P';
+      if (r < 25) return `F${'rgbycmw'[rand(7)]}`;
+      if (r < 26) return 'G';
+      if (r < 27) return 'X';
+      return `O${rand(2)}`; // often unpaired or over-paired: both must behave
     };
-    for (let round = 0; round < 200; round++) {
+    for (let round = 0; round < 400; round++) {
       const w = 3 + rand(6);
       const h = 3 + rand(6);
       const grid = Array.from({ length: h }, () => Array.from({ length: w }, toks).join(' '));
-      const all = board(grid);
+      const all = parseGrid(grid);
       const full = trace(all);
       expect(full.steps).toBeLessThanOrEqual(all.size * 8 * 3);
       const out = new Uint8Array(full.out.length);
@@ -102,7 +109,8 @@ describe('trace', () => {
         if (p?.kind !== 'emitter') return;
         const solo = all.clone();
         solo.cells.forEach((q, j) => {
-          if (q?.kind === 'emitter' && j !== i) solo.cells[j] = { kind: 'wall', rot: 0, color: 0, lock: 'fixed' };
+          // A hole absorbs like an emitter does without changing corner blocking.
+          if (q?.kind === 'emitter' && j !== i) solo.cells[j] = { kind: 'hole', rot: 0, color: 0, lock: 'fixed' };
         });
         const t = trace(solo);
         t.out.forEach((m, k) => (out[k]! |= m));
@@ -117,10 +125,12 @@ describe('trace', () => {
     const b = board(['Er0 . #', '. . .']);
     const segs = segments(b, trace(b));
     expect(segs).toEqual([
-      { x1: 0.5, y1: 0.5, x2: 1.5, y2: 0.5, color: 1, blocked: false },
-      { x1: 1.5, y1: 0.5, x2: 2, y2: 0.5, color: 1, blocked: true },
+      { x1: 0.5, y1: 0.5, x2: 1.5, y2: 0.5, color: 1, end: 'center' },
+      { x1: 1.5, y1: 0.5, x2: 2, y2: 0.5, color: 1, end: 'face' },
     ]);
     const edge = board(['. Er6']);
-    expect(segments(edge, trace(edge))).toEqual([{ x1: 1.5, y1: 0.5, x2: 1.5, y2: 0, color: 1, blocked: true }]);
+    expect(segments(edge, trace(edge))).toEqual([{ x1: 1.5, y1: 0.5, x2: 1.5, y2: 0, color: 1, end: 'edge' }]);
+    const pinch = board(['Er1 #', '#   Tr']);
+    expect(segments(pinch, trace(pinch))).toEqual([{ x1: 0.5, y1: 0.5, x2: 1, y2: 1, color: 1, end: 'corner' }]);
   });
 });

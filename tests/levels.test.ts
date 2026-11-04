@@ -16,6 +16,12 @@ const SOLUTIONS: Record<string, string[]> = {
   't-04': ['M7*@4,5'],
   't-05': ['M1*@4,1', 'M7*@4,3'],
   't-06': ['M1*@3,1', 'M7*@3,5'],
+  'o-01': ['S2*@3,1'],
+  'o-02': ['P*@3,2'],
+  'o-03': ['Fr*@4,1', 'Fb*@3,2'],
+  'o-04': ['X*@3,1'],
+  'o-05': ['M6*@5,3'],
+  'o-06': ['M7*@4,1', 'M0*@3,4'],
 };
 
 /** Apply a solution: clear all player-controlled pieces back to the tray, then set the listed ones. */
@@ -30,7 +36,9 @@ function apply(b: Board, moves: string[]): Board {
     const want = parseToken(tok)!;
     const i = out.idx(x, y);
     if (want.lock === 'free') {
-      const slot = out.inv.findIndex((s) => s.proto.kind === want.kind && s.proto.color === want.color && s.count > 0);
+      const slot = out.inv.findIndex(
+        (s) => s.proto.kind === want.kind && s.proto.color === want.color && s.proto.link === want.link && s.count > 0,
+      );
       expect(out.place(slot, i, want.rot), m).toBe(true);
     } else {
       const p = out.cells[i]!;

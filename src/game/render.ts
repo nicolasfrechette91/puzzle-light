@@ -24,12 +24,18 @@ const BEAM_PASSES: readonly (readonly [number, number])[] = [
 ];
 
 interface PieceStyle {
+  /** Seconds, for gentle animation. */
+  time: number;
   /** Colour arriving at a target. */
   got?: Color;
   ok?: boolean;
-  /** Seconds, for gentle animation. */
-  time: number;
+  /** Colour entering the cell (lights up optics). */
+  lit?: Color;
+  /** Colour absorbed in the cell (tints black holes). */
+  hit?: Color;
   alpha?: number;
+  /** Drawn as a tray icon: no lock base. */
+  tray?: boolean;
 }
 
 export class Renderer {
@@ -84,6 +90,8 @@ export class Renderer {
     const s = L.cell;
     const tiles = new Path2D();
     const walls = new Path2D();
+    const glass = new Path2D();
+    const sheen = new Path2D();
     const open = new Path2D();
     const placing = input.drag !== null || input.selectedSlot >= 0;
     for (let i = 0; i < b.size; i++) {
@@ -92,6 +100,13 @@ export class Renderer {
       const p = b.cells[i];
       if (p?.kind === 'wall') walls.roundRect(x + 1, y + 1, s - 2, s - 2, s * 0.12);
       else tiles.roundRect(x + 1.5, y + 1.5, s - 3, s - 3, s * 0.14);
+      if (p?.kind === 'glass') {
+        glass.roundRect(x + 3, y + 3, s - 6, s - 6, s * 0.12);
+        sheen.moveTo(x + s * 0.22, y + s * 0.62);
+        sheen.lineTo(x + s * 0.62, y + s * 0.22);
+        sheen.moveTo(x + s * 0.4, y + s * 0.78);
+        sheen.lineTo(x + s * 0.78, y + s * 0.4);
+      }
       if (placing && !p) open.roundRect(x + 1.5, y + 1.5, s - 3, s - 3, s * 0.14);
     }
     ctx.fillStyle = TILE;
@@ -132,6 +147,17 @@ export class Renderer {
     }
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.stroke();
+
+    // Glass: a clear pane you cannot build on.
+    ctx.fillStyle = 'rgba(170,205,255,0.07)';
+    ctx.fill(glass);
+    ctx.strokeStyle = 'rgba(170,205,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke(glass);
+    ctx.strokeStyle = 'rgba(220,235,255,0.13)';
+    ctx.lineWidth = Math.max(1, s * 0.03);
+    ctx.lineCap = 'round';
+    ctx.stroke(sheen);
   }
 
   private segmentsFor(b: Board, t: Trace): Segment[] {
@@ -170,14 +196,11 @@ export class Renderer {
     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     for (const path of paths.values()) ctx.stroke(path);
 
-    // Soft splash where a beam hits a wall or emitter.
+    // Soft splash where a beam hits a wall or emitter, or is pinched in a corner.
     for (const g of segs) {
-      if (!g.blocked) continue;
-      const ex = g.x2;
-      const ey = g.y2;
-      if (ex <= 0 || ey <= 0 || ex >= b.w || ey >= b.h) continue; // leaving the board
-      const px = L.bx + ex * s;
-      const py = L.by + ey * s;
+      if (g.end !== 'face' && g.end !== 'corner') continue;
+      const px = L.bx + g.x2 * s;
+      const py = L.by + g.y2 * s;
       const r = s * 0.24;
       const grad = ctx.createRadialGradient(px, py, 0, px, py, r);
       grad.addColorStop(0, rgba(g.color, 0.55));
@@ -193,11 +216,17 @@ export class Renderer {
     const got = new Map(t.targets.map((x) => [x.cell, x]));
     for (let i = 0; i < b.size; i++) {
       const p = b.cells[i];
-      if (!p || p.kind === 'wall') continue;
+      if (!p || p.kind === 'wall' || p.kind === 'glass') continue;
       const cx = L.bx + ((i % b.w) + 0.5) * s;
       const cy = L.by + (Math.floor(i / b.w) + 0.5) * s;
       const tgt = got.get(i);
-      drawPiece(this.ctx, p, cx, cy, s, { time, got: tgt?.got ?? 0, ok: tgt?.ok ?? false });
+      drawPiece(this.ctx, p, cx, cy, s, {
+        time,
+        got: tgt?.got ?? 0,
+        ok: tgt?.ok ?? false,
+        lit: t.lit[i]!,
+        hit: t.hit[i]!,
+      });
     }
   }
 
@@ -289,16 +318,10 @@ export class Renderer {
   }
 }
 
-function drawPiece(
-  ctx: CanvasRenderingContext2D,
-  p: Piece,
-  cx: number,
-  cy: number,
-  s: number,
-  style: PieceStyle & { tray?: boolean },
-): void {
+function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, style: PieceStyle): void {
   ctx.save();
   ctx.globalAlpha = style.alpha ?? 1;
+  if (!style.tray) drawBase(ctx, p, cx, cy, s);
   switch (p.kind) {
     case 'emitter':
       drawEmitter(ctx, p, cx, cy, s);
@@ -307,7 +330,30 @@ function drawPiece(
       drawTarget(ctx, p, cx, cy, s, style.got ?? 0, style.ok ?? false, style.time);
       break;
     case 'mirror':
-      drawMirror(ctx, p, cx, cy, s, style.tray ?? false);
+      drawMirror(ctx, p, cx, cy, s);
+      break;
+    case 'splitter':
+      drawSplitter(ctx, p, cx, cy, s, style.lit ?? 0);
+      break;
+    case 'prism':
+      drawPrism(ctx, cx, cy, s, style.lit ?? 0);
+      break;
+    case 'filter':
+      drawFilter(ctx, p, cx, cy, s, style.lit ?? 0);
+      break;
+    case 'hole':
+      drawHole(ctx, cx, cy, s, style.hit ?? 0, style.time);
+      break;
+    case 'portal':
+      drawPortal(ctx, p, cx, cy, s, style.lit ?? 0, style.time);
+      break;
+    case 'glass':
+      ctx.fillStyle = 'rgba(170,205,255,0.1)';
+      ctx.strokeStyle = 'rgba(170,205,255,0.35)';
+      ctx.beginPath();
+      ctx.roundRect(cx - s * 0.42, cy - s * 0.42, s * 0.84, s * 0.84, s * 0.12);
+      ctx.fill();
+      ctx.stroke();
       break;
     case 'wall':
       ctx.fillStyle = '#28304a';
@@ -316,6 +362,50 @@ function drawPiece(
       ctx.fill();
       break;
   }
+  ctx.restore();
+}
+
+/** What the player may do, shown under the piece: plate = movable, dashed ring = rotatable. */
+function drawBase(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number): void {
+  if (p.lock === 'free') {
+    ctx.fillStyle = '#192133';
+    ctx.strokeStyle = 'rgba(170,195,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(cx - s * 0.42, cy - s * 0.42, s * 0.84, s * 0.84, s * 0.16);
+    ctx.fill();
+    ctx.stroke();
+  } else if (canRotate(p)) {
+    ctx.strokeStyle = 'rgba(170,195,255,0.28)';
+    ctx.lineWidth = Math.max(1, s * 0.025);
+    ctx.setLineDash([s * 0.12, s * 0.07]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.41, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/** Small rivet marking a fixed piece that would otherwise look rotatable. */
+function drawPin(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number): void {
+  ctx.fillStyle = '#2a3245';
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, Math.max(2, s * 0.045), 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+}
+
+/** Additive radial glow, used for optics carrying light. */
+function glow(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, c: Color, alpha: number): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, rgba(c, alpha));
+  g.addColorStop(1, rgba(c, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   ctx.restore();
 }
 
@@ -425,27 +515,7 @@ function drawTarget(
   }
 }
 
-function drawMirror(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, tray: boolean): void {
-  // Base communicates what the player may do: plate = movable, ring = rotatable, none = fixed.
-  if (p.lock === 'free' && !tray) {
-    ctx.fillStyle = '#192133';
-    ctx.strokeStyle = 'rgba(170,195,255,0.18)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(cx - s * 0.42, cy - s * 0.42, s * 0.84, s * 0.84, s * 0.16);
-    ctx.fill();
-    ctx.stroke();
-  }
-  if (p.lock === 'rotate') {
-    ctx.strokeStyle = 'rgba(170,195,255,0.28)';
-    ctx.lineWidth = Math.max(1, s * 0.025);
-    ctx.setLineDash([s * 0.12, s * 0.07]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, s * 0.41, 0, TAU);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
+function drawMirror(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number): void {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(rotDegrees(p) * DEG);
@@ -467,13 +537,145 @@ function drawMirror(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: num
   ctx.stroke();
   ctx.restore();
 
-  if (p.lock === 'fixed') {
-    ctx.fillStyle = '#2a3245';
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = 1;
+  if (p.lock === 'fixed') drawPin(ctx, cx, cy, s);
+}
+
+function drawSplitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color): void {
+  if (lit) glow(ctx, cx, cy, s * 0.42, lit, 0.3);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotDegrees(p) * DEG);
+  const half = s * 0.37;
+  const thick = Math.max(3, s * 0.09);
+  ctx.fillStyle = 'rgba(4,6,10,0.6)';
+  ctx.beginPath();
+  ctx.roundRect(-half - 1, -thick / 2 - 1, half * 2 + 2, thick + 2, thick / 2);
+  ctx.fill();
+  // A half-silvered pane: tinted glass between two bright edges.
+  ctx.fillStyle = 'rgba(150,200,255,0.28)';
+  ctx.strokeStyle = 'rgba(225,240,255,0.9)';
+  ctx.lineWidth = Math.max(1, s * 0.018);
+  ctx.beginPath();
+  ctx.roundRect(-half, -thick / 2, half * 2, thick, thick / 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.setLineDash([s * 0.045, s * 0.045]);
+  ctx.beginPath();
+  ctx.moveTo(-half + thick / 2, 0);
+  ctx.lineTo(half - thick / 2, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+  if (p.lock === 'fixed') drawPin(ctx, cx, cy, s);
+}
+
+function drawPrism(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, lit: Color): void {
+  if (lit) glow(ctx, cx, cy, s * 0.5, lit, 0.32);
+  const r = s * 0.34;
+  const pts = [-90, 30, 150].map((a) => [cx + Math.cos(a * DEG) * r, cy + Math.sin(a * DEG) * r + s * 0.04] as const);
+  const path = new Path2D();
+  path.moveTo(pts[0]![0], pts[0]![1]);
+  path.lineTo(pts[1]![0], pts[1]![1]);
+  path.lineTo(pts[2]![0], pts[2]![1]);
+  path.closePath();
+  const body = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
+  body.addColorStop(0, 'rgba(70,85,125,0.95)');
+  body.addColorStop(1, 'rgba(26,32,52,0.95)');
+  ctx.fillStyle = body;
+  ctx.fill(path);
+  // Spectral rim: red on the left, blue on the right, matching how it bends light.
+  const rim = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
+  rim.addColorStop(0, rgba(1, 0.95));
+  rim.addColorStop(0.5, rgba(2, 0.95));
+  rim.addColorStop(1, rgba(4, 0.95));
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = Math.max(1.5, s * 0.035);
+  ctx.lineJoin = 'round';
+  ctx.stroke(path);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = Math.max(1, s * 0.015);
+  ctx.beginPath();
+  ctx.moveTo(pts[0]![0], pts[0]![1] + s * 0.08);
+  ctx.lineTo(cx - r * 0.35, cy + r * 0.2);
+  ctx.stroke();
+}
+
+function drawFilter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color): void {
+  const pass = lit & p.color;
+  if (pass) glow(ctx, cx, cy, s * 0.45, pass, 0.3);
+  const r = s * 0.27;
+  ctx.fillStyle = rgba(p.color, pass ? 0.42 : 0.24);
+  ctx.strokeStyle = rgba(p.color, 0.9);
+  ctx.lineWidth = Math.max(1.5, s * 0.04);
+  ctx.beginPath();
+  ctx.roundRect(cx - r, cy - r, r * 2, r * 2, s * 0.07);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = Math.max(1, s * 0.025);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.55, cy + r * 0.1);
+  ctx.lineTo(cx + r * 0.1, cy - r * 0.55);
+  ctx.stroke();
+}
+
+function drawHole(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, hit: Color, time: number): void {
+  const tint: Color = hit || 5; // violet-ish halo when idle, the swallowed colour when feeding
+  glow(ctx, cx, cy, s * 0.45, tint, hit ? 0.4 : 0.16);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(time * 0.9);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    const r = s * (0.2 + i * 0.05);
+    ctx.strokeStyle = rgba(tint, (hit ? 0.75 : 0.35) - i * 0.12);
+    ctx.lineWidth = Math.max(1, s * 0.03);
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(2, s * 0.045), 0, TAU);
-    ctx.fill();
+    ctx.arc(0, 0, r, (i * TAU) / 3, (i * TAU) / 3 + TAU * 0.42);
     ctx.stroke();
+  }
+  ctx.restore();
+  ctx.fillStyle = '#000';
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.15, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawPortal(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color, time: number): void {
+  const R = s * 0.32;
+  if (lit) glow(ctx, cx, cy, s * 0.55, lit, 0.35);
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  core.addColorStop(0, 'rgba(120,95,220,0.55)');
+  core.addColorStop(1, 'rgba(25,18,55,0.95)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(185,160,255,0.9)';
+  ctx.lineWidth = Math.max(1.5, s * 0.05);
+  ctx.stroke();
+  // Slow swirl.
+  ctx.strokeStyle = 'rgba(215,200,255,0.5)';
+  ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.setLineDash([s * 0.07, s * 0.06]);
+  ctx.lineDashOffset = -time * s * 0.15;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 0.7, 0, TAU);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Pips identify the pair: pair 0 has one, pair 1 two, …
+  const pips = ((p.link ?? 0) % 5) + 1;
+  ctx.fillStyle = 'rgba(240,235,255,0.95)';
+  for (let i = 0; i < pips; i++) {
+    const a = -Math.PI / 2 + (i * TAU) / pips;
+    const d = pips === 1 ? 0 : R * 0.34;
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, Math.max(1.5, s * 0.035), 0, TAU);
+    ctx.fill();
   }
 }

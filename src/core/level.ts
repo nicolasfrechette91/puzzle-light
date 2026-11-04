@@ -60,6 +60,16 @@ export function parseInventory(inv: Record<string, number> | undefined): InvSlot
 export function parseLevel(data: LevelData): Board {
   const grid = parseGrid(data.grid);
   const inv = parseInventory(data.inv);
+
+  // Portals come in pairs: each pair id must appear exactly twice across grid and tray.
+  const portals = new Map<number, number>();
+  const count = (link: number, k: number) => portals.set(link, (portals.get(link) ?? 0) + k);
+  for (const p of grid.cells) if (p?.kind === 'portal') count(p.link ?? 0, 1);
+  for (const s of inv) if (s.proto.kind === 'portal') count(s.proto.link ?? 0, s.count);
+  for (const [link, k] of portals) {
+    if (k !== 2) throw new LevelError(`portal pair ${link} has ${k} portal${k === 1 ? '' : 's'}, expected 2`);
+  }
+
   for (const p of grid.cells) {
     if (p?.lock !== 'free') continue;
     const key = slotKey(p);

@@ -13,14 +13,24 @@ describe('tokens', () => {
     expect(parseToken('M*')).toEqual({ kind: 'mirror', rot: 0, color: 0, lock: 'free' });
   });
 
+  it('parses the optics pieces', () => {
+    expect(parseToken('S3~')).toEqual({ kind: 'splitter', rot: 3, color: 0, lock: 'rotate' });
+    expect(parseToken('P*')).toEqual({ kind: 'prism', rot: 0, color: 0, lock: 'free' });
+    expect(parseToken('Fc')).toEqual({ kind: 'filter', rot: 0, color: 6, lock: 'fixed' });
+    expect(parseToken('G')).toEqual({ kind: 'glass', rot: 0, color: 0, lock: 'fixed' });
+    expect(parseToken('X*')).toEqual({ kind: 'hole', rot: 0, color: 0, lock: 'free' });
+    expect(parseToken('O7')).toEqual({ kind: 'portal', rot: 0, color: 0, lock: 'fixed', link: 7 });
+    expect(parseToken('O')).toMatchObject({ link: 0 });
+  });
+
   it('rejects malformed tokens', () => {
-    for (const bad of ['', 'Q', 'E0', 'Mr2', 'T', 'Tr3', '#1', 'M8', 'M2~*', 'm2', 'Exx']) {
+    for (const bad of ['', 'Q', 'E0', 'Mr2', 'T', 'Tr3', '#1', 'M8', 'M9', 'M2~*', 'm2', 'Exx', 'P2', 'F', 'Fr1', 'Gr', 'X3', 'Or1']) {
       expect(() => parseToken(bad), bad).toThrow(TokenError);
     }
   });
 
   it('formats canonically and round-trips', () => {
-    for (const tok of ['.', '#', 'Er0', 'Eb7~', 'Tw', 'M0', 'M3~', 'M6*']) {
+    for (const tok of ['.', '#', 'Er0', 'Eb7~', 'Tw', 'M0', 'M3~', 'M6*', 'S5~', 'P', 'P*', 'Fm', 'G', 'X*', 'O3', 'O1*']) {
       expect(formatToken(parseToken(tok))).toBe(tok);
     }
     expect(formatToken(parseToken('M'))).toBe('M0');
@@ -75,6 +85,13 @@ describe('levels', () => {
     expect(b.pickUp(0)).toBe(true);
     expect(b.inv).toHaveLength(1);
     expect(b.inv[0]!.count).toBe(1);
+  });
+
+  it('requires portals in pairs across grid and tray', () => {
+    expect(() => board(['Er0 O1 Tr'])).toThrow(/pair 1 has 1 portal,/);
+    expect(() => board(['O1 O1 O1'])).toThrow(/pair 1 has 3 portals/);
+    expect(() => board(['O1 . O2'], { O1: 1 })).toThrow(/pair 2/);
+    expect(board(['O1 . O2 O2'], { O1: 1 }).inv[0]).toMatchObject({ proto: { kind: 'portal', link: 1 }, count: 1 });
   });
 
   it('aligns columns', () => {
