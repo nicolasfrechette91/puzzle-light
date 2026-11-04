@@ -11,15 +11,37 @@ export interface LevelProgress {
   hints?: number;
 }
 
+type LevelRef = Pick<LevelData, 'id' | 'par'>;
+
 export interface WorldLike {
-  levels: readonly Pick<LevelData, 'id' | 'par'>[];
+  levels: readonly LevelRef[];
+  /** `stars`: opens once every ✦ (par met) in the worlds before it is earned. */
+  gate?: 'stars';
 }
 
-/** Which worlds are open: the first always, then each after `threshold` solves in the previous one. */
-export function unlockedWorlds(worlds: readonly WorldLike[], solved: (id: string) => boolean, threshold = UNLOCK_THRESHOLD): boolean[] {
+/** The ✦ a star-gated world asks for: every par level in the worlds before it. */
+export function starsFor(worlds: readonly WorldLike[], index: number, parMet: (l: LevelRef) => boolean): { have: number; need: number } {
+  const pars = worlds.slice(0, index).flatMap((w) => w.levels.filter((l) => l.par !== undefined));
+  return { have: pars.filter(parMet).length, need: pars.length };
+}
+
+/**
+ * Which worlds are open: the first always, then each after `threshold` solves
+ * in the previous one; a star-gated world once every earlier ✦ is earned.
+ */
+export function unlockedWorlds(
+  worlds: readonly WorldLike[],
+  solved: (id: string) => boolean,
+  parMet: (l: LevelRef) => boolean = () => false,
+  threshold = UNLOCK_THRESHOLD,
+): boolean[] {
   const open: boolean[] = [];
-  worlds.forEach((_w, i) => {
+  worlds.forEach((w, i) => {
     if (i === 0) return open.push(true);
+    if (w.gate === 'stars') {
+      const s = starsFor(worlds, i, parMet);
+      return open.push(s.need > 0 && s.have === s.need);
+    }
     const prev = worlds[i - 1]!;
     const need = Math.min(threshold, prev.levels.length);
     open.push(open[i - 1]! && prev.levels.filter((l) => solved(l.id)).length >= need);
@@ -32,8 +54,13 @@ export function unlockedWorlds(worlds: readonly WorldLike[], solved: (id: string
  * the next open unsolved level after it, then the first open unsolved level
  * anywhere; with everything solved, the remembered level (or the first).
  */
-export function resumeIndex(worlds: readonly WorldLike[], solved: (id: string) => boolean, last?: string): number {
-  const open = unlockedWorlds(worlds, solved);
+export function resumeIndex(
+  worlds: readonly WorldLike[],
+  solved: (id: string) => boolean,
+  last?: string,
+  parMet?: (l: LevelRef) => boolean,
+): number {
+  const open = unlockedWorlds(worlds, solved, parMet);
   const flat = worlds.flatMap((w, wi) => w.levels.map((l) => ({ id: l.id, open: open[wi]! })));
   const todo = (i: number) => flat[i]!.open && !solved(flat[i]!.id);
   const lastAt = flat.findIndex((l) => l.id === last && l.open);
@@ -98,8 +125,8 @@ export class Progress {
   }
 
   /** Did the best solve meet par? */
-  parMet(level: Pick<LevelData, 'id' | 'par'>): boolean {
+  parMet = (level: Pick<LevelData, 'id' | 'par'>): boolean => {
     const p = this.data.levels[level.id];
     return level.par !== undefined && p?.best !== undefined && p.best <= level.par;
-  }
+  };
 }

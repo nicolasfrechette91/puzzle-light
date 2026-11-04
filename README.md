@@ -29,7 +29,8 @@ Pages is enabled (see [Deploying](#deploying)).
 | prism | fans white into red, green and blue; tap to flip which side red goes |
 | portal | light leaves its twin, still heading the same way |
 
-42 levels in five worlds. Each world introduces one idea and then remixes it:
+51 levels in six worlds, plus five Expert bonus levels. Each world introduces
+one idea and then remixes it:
 
 | world | new idea | levels |
 |---|---|---|
@@ -38,6 +39,8 @@ Pages is enabled (see [Deploying](#deploying)).
 | Absorption | filters, glass, black holes | 8 |
 | Spectrum | prisms | 8 |
 | Wormholes | portals | 8 |
+| Confluence | everything together | 9 |
+| Expert | opens once every ✦ is earned | 5 |
 
 Every level is checked by a solver to have exactly one solution; par
 levels have exactly one fewest-piece solution. A world opens after you solve
@@ -116,7 +119,7 @@ npm run build      # typecheck + static build into dist/
 src/core/     pure engine: board, beam tracing, solver, hints, share codes
 src/game/     canvas renderer, input, HUD, sound, level select, progress
 src/editor/   level editor (lazy-loaded) and its solver worker
-src/levels/   the five worlds as JSON
+src/levels/   the worlds (and the Expert bonus) as JSON
 tests/        vitest suites and sample-level fixtures
 scripts/      npm run levels
 ```

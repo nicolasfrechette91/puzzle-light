@@ -1,0 +1,155 @@
+{
+  "id": "w6",
+  "name": "Confluence",
+  "blurb": "Every piece you have met, working together.",
+  "levels": [
+    {
+      "id": "6-1",
+      "name": "Reunion",
+      "note": "Everything you have learned, on one board.",
+      "grid": [
+        ".   .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   .   .   G   .   Tg",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   Tb  .   ."
+      ],
+      "inv": {
+        "P": 1,
+        "M": 1
+      }
+    },
+    {
+      "id": "6-2",
+      "name": "Folded Spectrum",
+      "grid": [
+        ".   .   .   #   .   .   .   Tr",
+        ".   .   .   #   .   .   .   .",
+        "Ew0 .   O1  #   .   P   .   Tg",
+        ".   .   .   #   .   .   .   .",
+        ".   .   .   #   .   Tb  .   #"
+      ],
+      "inv": {
+        "O1": 1,
+        "M": 1
+      }
+    },
+    {
+      "id": "6-3",
+      "name": "Leak",
+      "note": "A splitter mixes two beams, and sends the mix both ways.",
+      "grid": [
+        ".   .   .   Tr  .   .   Er4",
+        ".   .   .   G   .   .   .",
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   Ty",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Eg6 .   .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "X": 1
+      }
+    },
+    {
+      "id": "6-4",
+      "name": "Yellow Fan",
+      "grid": [
+        ".   .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   Ew0 .   .   .   .",
+        ".   .   .   .   .   G   .",
+        ".   .   .   .   .   .   Tg"
+      ],
+      "inv": {
+        "Fy": 1,
+        "P": 1,
+        "M": 1
+      }
+    },
+    {
+      "id": "6-5",
+      "name": "Spectrum Gate",
+      "grid": [
+        ".   .   .   .   #   .   .   .",
+        ".   .   .   .   #   .   .   Tb",
+        "Ew0 G   .   O1  #   .   .   .",
+        ".   .   .   .   #   O1  .   Tg",
+        ".   .   .   .   #   .   .   .",
+        ".   .   .   .   #   .   .   Tr"
+      ],
+      "inv": {
+        "P": 1,
+        "M": 2
+      }
+    },
+    {
+      "id": "6-6",
+      "name": "Crossroads",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Tr  .   .   .   .   .   Tb",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   Tm",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Eb6 .   .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "M": 1
+      }
+    },
+    {
+      "id": "6-7",
+      "name": "Switchyard",
+      "note": "Two beams can share one portal.",
+      "grid": [
+        ".   .   .   #   .   .   .",
+        "Er0 .   M0~ #   #   .   Tb",
+        ".   .   .   #   .   .   .",
+        ".   .   O1  #   O1  .   .",
+        ".   .   .   #   .   .   .",
+        "Eb0 .   M0~ #   M0~ .   Tr"
+      ],
+      "inv": {
+        "M": 1
+      }
+    },
+    {
+      "id": "6-8",
+      "name": "Spare Parts",
+      "grid": [
+        ".   .   .   .   .   .   Tr",
+        "Er0 .   .   .   .   O1  .",
+        ".   .   .   .   .   .   G",
+        ".   .   .   .   .   .   .",
+        ".   .   O1  G   G   .   .",
+        ".   .   .   Tr  .   .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "M": 2
+      },
+      "par": 2
+    },
+    {
+      "id": "6-9",
+      "name": "Convergence",
+      "grid": [
+        ".   .   .   .   #   .   Tr  .   .",
+        "Ew0 .   S2  O1  #   .   .   .   .",
+        ".   .   .   .   #   .   .   .   .",
+        ".   .   G   .   #   .   .   .   .",
+        ".   .   G   .   #   O1  .   .   Tg",
+        "Ty  G   .   .   #   .   .   .   .",
+        ".   .   .   .   #   .   .   .   Tb"
+      ],
+      "inv": {
+        "Fy": 1,
+        "P": 1,
+        "M": 2
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { dailyLevel, movesPar } from '../core/daily';
 import { endlessLevel } from '../core/endless';
 import type { Generated, Tier } from '../core/generate';
 import { parseLevel } from '../core/level';
+import type { WorkerReply } from './worker-client';
 
 /** Level generation off the main thread (daily puzzle, endless mode). */
 export type GenRequest = { id: number; kind: 'daily'; date: string } | { id: number; kind: 'endless'; tier: Tier; n: number };
@@ -13,13 +14,12 @@ export interface GenOutput {
   movesPar: number;
 }
 
-export type GenResponse = { id: number; ok: true; out: GenOutput } | { id: number; ok: false; error: string };
 
 declare const self: DedicatedWorkerGlobalScope;
 
 self.onmessage = (e: MessageEvent<GenRequest>) => {
   const req = e.data;
-  let reply: GenResponse;
+  let reply: WorkerReply<GenOutput>;
   try {
     const g = req.kind === 'daily' ? dailyLevel(req.date) : endlessLevel(req.tier, req.n);
     if (!g) throw new Error('no level found for this seed');

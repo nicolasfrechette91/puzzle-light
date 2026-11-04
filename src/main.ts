@@ -7,14 +7,14 @@ import type { EditorUI } from './editor/editor-ui';
 import { Sound } from './game/audio';
 import { DailyStore, todayLocal, untilTomorrow } from './game/daily-store';
 import { EndlessStore } from './game/endless-store';
-import { GenClient } from './game/gen-client';
 import type { GenOutput } from './game/generate.worker';
+import { generator, hintSolver } from './game/worker-client';
 import { Game } from './game/game';
 import { Hud, type ModeHooks } from './game/hud';
 import { Input } from './game/input';
 import { computeLayout, type Layout } from './game/layout';
 import { LevelSelect } from './game/level-select';
-import { Progress, resumeIndex, UNLOCK_THRESHOLD, unlockedWorlds } from './game/progress';
+import { Progress, resumeIndex, starsFor, UNLOCK_THRESHOLD, unlockedWorlds } from './game/progress';
 import { Renderer } from './game/render';
 import { ALL_LEVELS, PACKS } from './levels';
 
@@ -28,14 +28,19 @@ const sound = new Sound();
 
 /** World index of each campaign level, by position. */
 const worldOf: number[] = PACKS.flatMap((p, w) => p.levels.map(() => w));
-const campaignOpen = (i: number): boolean => unlockedWorlds(PACKS, progress.solved)[worldOf[i] ?? 0] ?? false;
+const openWorlds = (): boolean[] => unlockedWorlds(PACKS, progress.solved, progress.parMet);
+const campaignOpen = (i: number): boolean => openWorlds()[worldOf[i] ?? 0] ?? false;
 
 // `?l=3` opens the third level directly (development); otherwise resume where the player left off.
 const param = new URLSearchParams(location.search).get('l');
 const devStart = param === null ? null : Number(param) - 1;
-const start = devStart !== null && Number.isFinite(devStart) ? devStart : resumeIndex(PACKS, progress.solved, progress.last);
+const start = devStart !== null && Number.isFinite(devStart) ? devStart : resumeIndex(PACKS, progress.solved, progress.last, progress.parMet);
 const game = new Game(ALL_LEVELS, start);
 game.isOpen = devStart === null ? campaignOpen : () => true;
+// Hints solve in their own worker, so they never wait behind level generation (D-061).
+const hints = hintSolver();
+game.solveAsync = (level) => hints.request({ level });
+game.prepareHints();
 const renderer = new Renderer(canvas);
 
 let size = { w: 1, h: 1 };
@@ -64,7 +69,7 @@ let mode: 'campaign' | 'shared' | 'test' | 'edit' | 'daily' | 'endless' = 'campa
 // ── daily puzzle (D-054) ──
 
 const daily = new DailyStore();
-const gen = new GenClient();
+const gen = generator();
 
 interface DailySession {
   date: string;
@@ -312,9 +317,9 @@ game.on((e) => {
       hud.refresh();
     }
     if (mode === 'campaign') {
-      const before = unlockedWorlds(PACKS, progress.solved);
+      const before = openWorlds();
       progress.markSolved(game.level.id, game.piecesUsed, game.hintsUsed);
-      const after = unlockedWorlds(PACKS, progress.solved);
+      const after = openWorlds();
       const opened = after.findIndex((o, w) => o && !before[w]);
       if (opened >= 0) hud.say(`${PACKS[opened]!.name} is now open.`);
     }
@@ -331,6 +336,10 @@ hud.lockNote = () => {
   if (mode !== 'campaign' || game.hasNext || game.index >= game.levels.length - 1) return null;
   const w = worldOf[game.index + 1] ?? 0;
   const prev = PACKS[w - 1];
+  if (PACKS[w]?.gate === 'stars') {
+    const s = starsFor(PACKS, w, progress.parMet);
+    return `earn every ✦ to open ${PACKS[w]!.name} (${s.have} / ${s.need})`;
+  }
   return prev ? `solve ${Math.min(UNLOCK_THRESHOLD, prev.levels.length)} in ${prev.name} to open ${PACKS[w]!.name}` : null;
 };
 // The HUD drew once before these callbacks existed; redraw so e.g. the sound button starts correct.

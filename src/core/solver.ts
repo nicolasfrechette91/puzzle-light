@@ -117,6 +117,9 @@ export function isActive(p: Piece, arr: readonly Arrival[]): boolean {
   }
 }
 
+/** How hints solve a level: enough solutions to find the nearest one, and a generous cap. */
+export const HINT_SOLVE: SolveOptions = { maxNodes: 2_000_000, maxSolutions: 50 };
+
 export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
   const maxSolutions = opts.maxSolutions ?? 20;
   const maxNodes = opts.maxNodes ?? 5_000_000;

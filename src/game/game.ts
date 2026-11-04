@@ -2,7 +2,7 @@ import type { Board } from '../core/board';
 import { nextHint, type Hint } from '../core/hint';
 import { History } from '../core/history';
 import { parseLevel, type LevelData } from '../core/level';
-import { solve, type Solution } from '../core/solver';
+import { HINT_SOLVE, solve, type Solution } from '../core/solver';
 import { trace, type Trace } from '../core/trace';
 
 /** The player action behind the latest 'change' (for sound and effects). */
@@ -39,10 +39,18 @@ export class Game {
   lastDelta = 0;
   /** Whether level `i` may be played (world gates in the campaign). */
   isOpen: (i: number) => boolean = () => true;
+  /**
+   * Finds a level's solutions off the main thread (D-061). Without it, the
+   * first hint solves synchronously.
+   */
+  solveAsync: ((level: LevelData) => Promise<Solution[]>) | null = null;
+  /** A hint was asked for and waits for the solutions. */
+  hintPending = false;
 
   private history!: History<Board>;
   private start!: Board;
   private solutions: Solution[] | null = null;
+  private solving: LevelData | null = null;
   private listeners = new Set<(e: GameEvent) => void>();
 
   constructor(levels: LevelData[], start = 0) {
@@ -73,13 +81,33 @@ export class Game {
     const b = parseLevel(this.level);
     this.start = b.clone();
     this.solutions = null;
+    this.solving = null;
+    this.hintPending = false;
     this.hintShown = null;
     this.hintsUsed = 0;
     this.history = new History(b, (s) => s.key());
     this.solved = false;
     this.lastAction = 'load';
     this.setBoard(b.clone(), false);
+    this.prepareHints();
     this.emit('level');
+  }
+
+  /** Start finding the current level's solutions in the background, if a worker is available. */
+  prepareHints(): void {
+    if (!this.solveAsync || this.solutions || this.solving === this.level) return;
+    const level = this.level;
+    this.solving = level;
+    const done = (s: Solution[] | null) => {
+      if (this.level !== level || this.solving !== level) return;
+      this.solving = null;
+      this.solutions = s ?? solve(this.start, HINT_SOLVE).solutions;
+      if (this.hintPending) {
+        this.hintPending = false;
+        this.hint();
+      }
+    };
+    this.solveAsync(level).then(done, () => done(null));
   }
 
   get hasPrev(): boolean {
@@ -152,12 +180,20 @@ export class Game {
   }
 
   /**
-   * Show the next step towards the nearest solution. The level is solved once,
-   * lazily, the first time a hint is asked for.
+   * Show the next step towards the nearest solution. The level is solved once:
+   * in the background when it loads (then a hint asked for early arrives as
+   * soon as the solutions do), or else here, the first time.
    */
   hint(): Hint | null {
     if (this.solved) return null;
-    this.solutions ??= solve(this.start, { maxNodes: 2_000_000, maxSolutions: 50 }).solutions;
+    if (!this.solutions && this.solveAsync) {
+      this.prepareHints();
+      this.hintPending = true;
+      this.lastAction = 'hint';
+      this.emit('change');
+      return null;
+    }
+    this.solutions ??= solve(this.start, HINT_SOLVE).solutions;
     this.hintShown = nextHint(this.start, this.board, this.solutions);
     if (this.hintShown) this.hintsUsed++;
     this.lastAction = 'hint';
@@ -179,7 +215,10 @@ export class Game {
     this.trace = trace(b);
     const was = this.solved;
     this.solved = this.trace.solved;
-    if (this.solved) this.completed.add(this.level.id);
+    if (this.solved) {
+      this.completed.add(this.level.id);
+      this.hintPending = false;
+    }
     this.emit('change');
     if (announce && this.solved && !was) this.emit('solved');
   }

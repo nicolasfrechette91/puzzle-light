@@ -1,7 +1,7 @@
 import type { Tier } from '../core/generate';
 import { PACKS } from '../levels';
 import type { Game } from './game';
-import { UNLOCK_THRESHOLD, unlockedWorlds, type Progress } from './progress';
+import { starsFor, UNLOCK_THRESHOLD, unlockedWorlds, type Progress } from './progress';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -58,7 +58,7 @@ export class LevelSelect {
   }
 
   private render(): void {
-    const open = unlockedWorlds(PACKS, this.progress.solved);
+    const open = unlockedWorlds(PACKS, this.progress.solved, this.progress.parMet);
     const current = this.game.levels === undefined ? '' : this.game.level.id;
     let index = 0;
     const cards: HTMLElement[] = [];
@@ -120,7 +120,13 @@ export class LevelSelect {
           section.classList.add('locked');
           const prev = PACKS[w - 1]!;
           const need = Math.min(UNLOCK_THRESHOLD, prev.levels.length);
-          section.append(Object.assign(document.createElement('p'), { className: 'lock-note', textContent: `Solve ${need} levels in ${prev.name} to open.` }));
+          const s = starsFor(PACKS, w, this.progress.parMet);
+          section.append(
+            Object.assign(document.createElement('p'), {
+              className: 'lock-note',
+              textContent: pack.gate === 'stars' ? `Earn every ✦ to open (${s.have} / ${s.need}).` : `Solve ${need} levels in ${prev.name} to open.`,
+            }),
+          );
         }
         const tiles = document.createElement('div');
         tiles.className = 'tiles';

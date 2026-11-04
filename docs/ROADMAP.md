@@ -17,8 +17,8 @@ by a short summary with the new decision entries.
 | 8 | Generator: seeded levels, unique, every piece matters, difficulty band | **done** |
 | 9 | Daily puzzle: date seed, streak, time, spoiler-free share | **done** |
 | 10 | Endless mode: easy / medium / hard | **done** |
-| 11 | World 6 (8+ combination levels) + 5 expert bonus levels | next |
-| 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | |
+| 11 | World 6 (8+ combination levels) + 5 expert bonus levels | **done** |
+| 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | next |
 
 ## M1: delivered
 
@@ -172,6 +172,19 @@ All design decisions, with the policy used to make them, live in
   each tier are unique and in their difficulty band. Browser checks covered
   solving, skipping (a double click counts once), reload, tier switches and the
   phone layout.
+
+## M11: delivered
+
+* **World 6 "Confluence"**, 9 levels combining every piece, ordered by
+  difficulty 10.9 → 21.7, with one ✦ level, Spare Parts (D-063).
+* **Expert**, 5 bonus levels (difficulty 17–22) that open once all 6 ✦ are
+  earned, shown as "Earn every ✦ to open (n / 6)" (D-062, D-064).
+* **Hints solve in a worker** when a level loads, so even the heaviest levels
+  never freeze the page (D-061).
+* **Fix:** the level sheet scrolls again; its lower worlds were unreachable
+  (D-065).
+* 56 levels, all solver-verified; tests for the star gate; every new level
+  was solved through hints in the browser.
 
 ## Open questions for the owner
 

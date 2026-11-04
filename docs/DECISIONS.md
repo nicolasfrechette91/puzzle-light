@@ -465,3 +465,62 @@ Process:
   * **Prefix:** the "Endless · " prefix is hidden at ≤420 px, leaving "Medium #1".
   * **Names:** a name that still doesn't fit ends in an ellipsis instead of being cut mid-letter (this also fixes long campaign names).
 * **Reason:** The tier and number identify the puzzle; the mode is clear from the level select and the Skip button.
+
+### D-061 · Hints solve in a worker (M11, by: claude)
+* **Question:** The new finale needs a 2 s solve (longer on phones), and the first hint used to solve on the main thread, freezing the page. Cap level difficulty, or move the work?
+* **Options:** keep every level under ~75k states; precompute solutions into the level data (a second format); solve in a Web Worker.
+* **Choice:** a dedicated hint worker solves each level as it loads.
+  * **Early hint:** a hint asked for before the solutions arrive shows "Looking for a hint…" and appears as soon as they do.
+  * **Fallbacks:** without a worker (tests, Node) or on a worker error, the game still solves synchronously.
+  * **Shared code:** both workers now use one small `WorkerClient`.
+* **Reason:** Hard levels stay possible without a second level format (policy 4). It's measured: on Convergence the hint arrived after 1.3 s, and the page kept drawing throughout (67 frames, worst 30 ms).
+
+### D-062 · What "all stars" opens (M11, by: reviewer)
+* **Question:** "5 bonus expert levels unlocked after all stars": the only star in the game is ✦ (par met), and there is one ✦ level per world.
+* **Options:**
+  * A: every ✦ earned.
+  * B: every level solved and every ✦ earned.
+  * C: every level solved.
+* **Choice:** A. The Expert pack opens once all 6 ✦ in worlds 1–6 are earned.
+  * **Lock text:** the level select shows "Earn every ✦ to open (n / 6)", and the last campaign banner says the same.
+  * **Data:** it is computed from saved progress (a `gate: "stars"` field on the pack), so nothing new is stored.
+* **Reason:** It's the literal reading, and ✦ is already counted on every world header. B adds a requirement the owner didn't ask for, and C ignores the stars. Earning all six still means reaching World 6.
+
+### D-063 · World 6 "Confluence" (M11, by: claude)
+* **Question:** What should the combination world contain, and in what order?
+* **Choice:** 9 levels, each pairing ideas from different worlds, ordered by solver difficulty (10.9 → 21.7):
+
+  | level | combines |
+  |---|---|
+  | Reunion | prism + mirror |
+  | Folded Spectrum | portal twin + prism + mirror |
+  | Leak | mixing splitter + black-hole plug |
+  | Yellow Fan | a filter before a prism fans only red and green |
+  | Spectrum Gate | portal + prism flip + mirrors |
+  | Crossroads | a 22.5° splitter sends two colours diagonally at once |
+  | Switchyard | two beams share one portal, routed by rotate-only mirrors |
+  | Spare Parts | the world's ✦ level: par 2 with three pieces in the tray |
+  | Convergence | splitter, filter, portal, prism and mirrors |
+
+  Every level has one solution (Spare Parts: one fewest-piece solution). It opens after 6 solves in Wormholes, like every world (D-036).
+* **Reason:** Each level adds one combination, so the world teaches without new rules (policy 1). The checker proves uniqueness (policy 2), and the slowest solve is 2 s against the 10 s CI limit.
+
+### D-064 · The five Expert levels (M11, by: claude)
+* **Question:** What makes an Expert level, given its solves must stay fast?
+* **Choice:** Each turns on one insight the campaign only hints at, at difficulty 17–22, with every solve under 2.5 s:
+
+  | level | insight |
+  |---|---|
+  | Magenta Fork | the "leaked" half of a mixed beam is the one you need, split again by a prism |
+  | Eclipse | the plug can only go where it misses the prism's other beams |
+  | Yellow Prism | a prism fed yellow fans red and green only, and the flip decides which side red takes |
+  | Three Ways Through | three beams enter one portal from three sides |
+  | Spectrum Relay | each colour takes its own portal, filtered at the exit, and all three meet at one white target |
+
+  I considered a version of Yellow Prism with a tray portal (1.3M states), but it was too slow for hints and CI.
+* **Reason:** Depth through insight rather than size keeps the levels clear and quick to verify (policies 1–3).
+
+### D-065 · Level sheet scrolls (M11, by: claude)
+* **Question:** With 7 worlds the level sheet grew past the screen and its lower worlds couldn't be reached; its `max-height: 100%` followed the content inside the centred grid.
+* **Choice:** cap the sheet at the viewport height (`100dvh` minus the margin), with a scrolling body.
+* **Reason:** A plain layout bug; the fix changes nothing else.

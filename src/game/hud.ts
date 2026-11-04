@@ -181,8 +181,8 @@ export class Hud {
     el.redo.disabled = !g.canRedo;
     el.hint.disabled = g.solved;
 
-    el.note.textContent = g.hintShown ? describeHint(g, g.hintShown) : this.notice || this.hooks.status?.() || (g.level.note ?? '');
-    el.note.classList.toggle('hinting', !!g.hintShown);
+    el.note.textContent = g.hintShown ? describeHint(g, g.hintShown) : g.hintPending ? 'Looking for a hint…' : this.notice || this.hooks.status?.() || (g.level.note ?? '');
+    el.note.classList.toggle('hinting', !!g.hintShown || g.hintPending);
     el.note.hidden = g.solved;
     el.skip.hidden = g.solved || !this.hooks.skip;
     el.solved.hidden = !g.solved;

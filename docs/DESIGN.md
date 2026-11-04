@@ -44,7 +44,9 @@ src/
     render.ts           canvas drawing
     hud.ts              DOM toolbar, notes, win banner; per-mode hooks (daily, endless)
     level-select.ts     level sheet: daily and endless cards, worlds, par marks
-    generate.worker.ts  level generation off the main thread (+ gen-client.ts)
+    generate.worker.ts  level generation off the main thread
+    hint.worker.ts      solves the level being played, for hints
+    worker-client.ts    promise-based requests to both workers
     daily-store.ts      daily results, streak, today's cached level
     endless-store.ts    endless progress per tier
   editor/               level editor (lazy-loaded)
@@ -54,7 +56,7 @@ src/
     storage.ts          guarded localStorage: draft + My levels
   levels/
     index.ts            world packs (JSON imported at build time)
-    world1..5.json      { id, name, blurb, levels: LevelData[] }
+    world1..7.json      { id, name, blurb, gate?, levels: LevelData[] } (7 = Expert, gate "stars")
 tests/                  vitest, runs the core in Node (solver checked against brute force)
 scripts/check-levels.ts npm run levels: solve and validate every level (CI)
 docs/                   this file + ROADMAP.md
