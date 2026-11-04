@@ -112,8 +112,8 @@ body {
   cursor: default;
 }
 
-.btn:focus-visible,
-.pill:focus-visible {
+/* Keyboard focus is visible on every control (D-069). */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -402,8 +402,13 @@ body {
 }
 
 .tile.current {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  /* An inner ring, so it never looks like keyboard focus (an outer ring). */
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tile:focus-visible {
+  outline-offset: 3px;
 }
 
 .tile .mark {
@@ -496,6 +501,9 @@ body {
 .name-input:focus {
   border-color: var(--line);
   background: var(--panel);
+}
+
+.name-input:focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -646,6 +654,28 @@ body {
 
 .swatch.on {
   border-color: var(--fg);
+}
+
+.swatch .sym {
+  display: none;
+}
+
+.symbols .swatch .sym {
+  display: inline-block;
+  padding: 0 2px;
+  border-radius: 4px;
+  background: rgba(6, 8, 14, 0.85);
+  color: #f4f6ff;
+  font-size: 8px;
+  line-height: 12px;
+  letter-spacing: -0.5px;
+}
+
+.sheet-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 10px;
 }
 
 .segmented {
@@ -855,8 +885,11 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #solved {
-    animation: none;
-  }
+/* Reduce motion (the setting, which follows the system unless changed; D-067). */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
 }

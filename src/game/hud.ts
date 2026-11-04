@@ -36,6 +36,8 @@ export class Hud {
   private mode: PlayMode = 'campaign';
   private hooks: ModeHooks = {};
   private notice = '';
+  /** Added to the solved banner until the level changes (e.g. "Reflection complete"). */
+  private bannerNote = '';
   /** Called by the pencil button: open the editor (or go back to it). */
   onEdit: () => void = () => {};
   /** Open the level select. */
@@ -90,7 +92,7 @@ export class Hud {
     });
     window.addEventListener('keydown', this.onKey);
     game.on((e) => {
-      if (e === 'level') this.notice = '';
+      if (e === 'level') this.notice = this.bannerNote = '';
       this.update();
     });
     this.update();
@@ -112,6 +114,12 @@ export class Hud {
 
   /** Re-read state that lives outside the game (e.g. sound). */
   refresh(): void {
+    this.update();
+  }
+
+  /** Extra words for the solved banner, until the next level. */
+  celebrate(note: string): void {
+    this.bannerNote = note;
     this.update();
   }
 
@@ -194,6 +202,7 @@ export class Hud {
         ? this.hooks.solved()
         : (par === undefined ? 'Solved' : used <= par ? `Solved · ${used} of par ${par} ✦` : `Solved · ${used} pieces (par ${par})`) +
           (lock ? ` · ${lock}` : '');
+      if (this.bannerNote) el.solvedText.textContent += ` · ${this.bannerNote}`;
       const action = this.hooks.action?.();
       el.cont.textContent = action ? action.label : 'Next level';
       el.cont.hidden = action ? false : !g.hasNext || !campaign;

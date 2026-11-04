@@ -49,6 +49,7 @@ src/
     worker-client.ts    promise-based requests to both workers
     daily-store.ts      daily results, streak, today's cached level
     endless-store.ts    endless progress per tier
+    settings.ts         display settings: colour symbols, reduce motion
   editor/               level editor (lazy-loaded)
     model.ts            DOM-free editable level with undo; problem() explains what's missing
     editor-ui.ts        canvas painting + side panel; auto solver check; save/share/test

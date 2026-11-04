@@ -66,6 +66,18 @@ step at a time.
 | levels | grid button | grid button | `L` |
 | sound on/off | speaker | level select | `M` |
 
+## Accessibility
+
+Open the level select's **Options** row:
+
+* **Colour symbols** marks every colour with a shape per channel, so mixes read
+  as their parts: red ▲, green ■, blue ●, yellow ▲■, magenta ▲●, cyan ■●,
+  white ▲■●.
+* **Reduce motion** follows your system setting until you change it.
+
+The whole game can be played by keyboard (arrows and Space on the board, Tab
+through the controls), with a visible focus ring everywhere.
+
 ## Daily puzzle
 
 Every day brings a new generated puzzle, the same for everyone (open the

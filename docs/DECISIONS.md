@@ -524,3 +524,36 @@ Process:
 * **Question:** With 7 worlds the level sheet grew past the screen and its lower worlds couldn't be reached; its `max-height: 100%` followed the content inside the centred grid.
 * **Choice:** cap the sheet at the viewport height (`100dvh` minus the margin), with a scrolling body.
 * **Reason:** A plain layout bug; the fix changes nothing else.
+
+### D-066 · Colour-blind mode: a shape per light channel (M12, by: claude)
+* **Question:** Which pattern or symbol should stand for each colour?
+* **Options:** letters (R, G, B, Y, C, M, W); one arbitrary symbol per colour; one shape per channel, combined for mixes.
+* **Choice:** a shape per channel: red ▲, green ■, blue ●, and a mix lists its parts (yellow ▲■, magenta ▲●, cyan ■●, white ▲■●).
+  * **Where:** on a small dark badge at the top-left of every emitter, target and filter (board and tray), on badges spaced along every beam, and on the editor's colour swatches.
+  * **How:** one toggle, **Colour symbols**, in the level sheet's Options row, saved locally.
+* **Reason:** The symbols follow the game's own rule that colours add up (policy 1): a target marked ▲■ visibly wants the ▲ beam plus the ■ beam. They need no language and stay distinct in greyscale (checked with a greyscale screenshot). They sit beside the piece silhouettes (D-049) rather than replacing them.
+
+### D-067 · Reduce motion is a setting (M12, by: claude)
+* **Question:** Should motion follow only the system preference, as before?
+* **Choice:** an Options toggle, **Reduce motion**, that follows the system until changed (the label says "(system)") and updates live when the system preference changes. When on:
+  * the board doesn't fade in, pieces don't animate turning, and no sparks fly;
+  * a solve shows a soft glow in place instead of spreading rings, and a completed world gets a gentle brightening instead of a sweep;
+  * every CSS animation and transition is off.
+* **Reason:** Some players want calm motion without changing their whole system; the default still respects the system.
+
+### D-068 · Level-complete and world-complete moments (M12, by: claude)
+* **Question:** How much should completing a level or a world celebrate?
+* **Choice:**
+  * **A level:** two rings of each target's colour spread from it, alongside the existing sparks, chime and bright beams.
+  * **The last unsolved level of a world:** a slow band of warm light crosses the board, a rising four-note arpeggio follows the solve chime, and the banner adds "· Reflection complete".
+* **Reason:** It stays calm (soft light, no shaking or flashing) while making a finished world feel distinct; it all fits in the existing render loop.
+
+### D-069 · Keyboard focus visible everywhere (M12, by: claude)
+* **Question:** How do we make sure every control shows keyboard focus?
+* **Choice:**
+  * **One rule:** a single global `:focus-visible` outline for every focusable element.
+  * **The current level tile:** marked with an inner ring, so it can't be mistaken for focus (an outer ring).
+  * **The editor's name field:** now shows the outline too.
+  * **The board:** keeps its keyboard cursor ring.
+  * **Audit:** a scripted check tabs through the play view, the level sheet and the editor; every element showed a visible ring.
+* **Reason:** One rule can't miss new controls, and the audit proves it.

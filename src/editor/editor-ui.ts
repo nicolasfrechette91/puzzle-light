@@ -1,4 +1,4 @@
-import { COLOR_NAMES, rgba } from '../core/color';
+import { colorSymbols, COLOR_NAMES, rgba } from '../core/color';
 import type { LevelData } from '../core/level';
 import { KINDS, type Kind, type Lock, type Piece } from '../core/piece';
 import { encodeLevel } from '../core/share';
@@ -332,6 +332,8 @@ export class EditorUI {
       b.title = COLOR_NAMES[c]!;
       b.setAttribute('aria-label', `${COLOR_NAMES[c]} light`);
       b.style.background = rgba(c, 1);
+      // Shown in colour-symbol mode (D-066).
+      b.append(Object.assign(document.createElement('span'), { className: 'sym', textContent: colorSymbols(c), ariaHidden: 'true' }));
       b.addEventListener('click', () => {
         this.brush.color = c;
         this.renderPanel();

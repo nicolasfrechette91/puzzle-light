@@ -49,3 +49,18 @@ export function rgba(c: Color, alpha = 1): string {
   const [r, g, b] = COLOR_RGB[c & 7]!;
   return `rgba(${r},${g},${b},${alpha})`;
 }
+
+/**
+ * Colour symbols (D-066): one shape per light channel, so a mixed colour
+ * lists its parts — yellow is ▲■, white ▲■●.
+ */
+export const CHANNEL_SYMBOLS: readonly (readonly [Color, string])[] = [
+  [RED, '▲'],
+  [GREEN, '■'],
+  [BLUE, '●'],
+];
+
+export const colorSymbols = (c: Color): string =>
+  CHANNEL_SYMBOLS.filter(([ch]) => c & ch)
+    .map(([, sym]) => sym)
+    .join('');

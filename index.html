@@ -67,13 +67,17 @@
           <header class="sheet-head">
             <h2 id="levels-title">Levels</h2>
             <div class="sheet-tools">
-              <button id="levels-sound" class="chip-btn" type="button">Sound: on</button>
               <button id="levels-edit" class="chip-btn" type="button">Level editor</button>
               <button id="levels-close" class="btn" type="button" aria-label="Close" title="Close (Esc)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
             </div>
           </header>
+          <div class="sheet-options" role="group" aria-label="Options">
+            <button id="levels-sound" class="chip-btn" type="button" aria-pressed="true">Sound: on</button>
+            <button id="opt-symbols" class="chip-btn" type="button" aria-pressed="false" title="A shape for each colour of light: red ▲, green ■, blue ●">Colour symbols: off</button>
+            <button id="opt-motion" class="chip-btn" type="button" aria-pressed="false">Reduce motion: off</button>
+          </div>
           <div id="levels-body" class="sheet-body"></div>
         </div>
       </div>

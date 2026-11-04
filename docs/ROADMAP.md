@@ -18,7 +18,7 @@ by a short summary with the new decision entries.
 | 9 | Daily puzzle: date seed, streak, time, spoiler-free share | **done** |
 | 10 | Endless mode: easy / medium / hard | **done** |
 | 11 | World 6 (8+ combination levels) + 5 expert bonus levels | **done** |
-| 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | next |
+| 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | **done** |
 
 ## M1: delivered
 
@@ -185,6 +185,21 @@ All design decisions, with the policy used to make them, live in
   (D-065).
 * 56 levels, all solver-verified; tests for the star gate; every new level
   was solved through hints in the browser.
+
+## M12: delivered
+
+* **Colour symbols** (Options → Colour symbols): red ▲, green ■, blue ●, with
+  mixes shown by their parts, on emitters, targets, filters, beams and the
+  editor's swatches (D-066).
+* **Reduce motion** setting, following the system until changed (D-067).
+* **Completion moments**: rings of light from each target when a level is
+  solved; a sweep of light, an arpeggio and "World complete" in the banner for
+  the last level of a world (D-068).
+* **Keyboard focus** visible on every control; the current level tile has an
+  inner ring; a scripted tab-through audit of each view (D-069).
+* `src/game/settings.ts`; `colorSymbols` in the core, with tests.
+
+All milestones in this plan are done.
 
 ## Open questions for the owner
 

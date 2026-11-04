@@ -224,6 +224,13 @@ export class Sound {
     this.bell(ctx, 880, ctx.currentTime + 0.25 + notes.length * 0.14 + 0.1, 0.06, this.sfx);
   }
 
+  /** A whole world is complete: the solve's notes, then a slow rising arpeggio. */
+  world(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.bell(ctx, f, ctx.currentTime + 1.1 + i * 0.18, 0.05, this.sfx));
+  }
+
   hint(): void {
     const ctx = this.ready();
     if (!ctx) return;

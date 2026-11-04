@@ -15,7 +15,8 @@ import { Input } from './game/input';
 import { computeLayout, type Layout } from './game/layout';
 import { LevelSelect } from './game/level-select';
 import { Progress, resumeIndex, starsFor, UNLOCK_THRESHOLD, unlockedWorlds } from './game/progress';
-import { Renderer } from './game/render';
+import { Renderer, setDisplay } from './game/render';
+import { Settings } from './game/settings';
 import { ALL_LEVELS, PACKS } from './levels';
 
 const playView = document.querySelector<HTMLElement>('#play-view')!;
@@ -25,6 +26,7 @@ const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
 
 const progress = new Progress();
 const sound = new Sound();
+const settings = new Settings();
 
 /** World index of each campaign level, by position. */
 const worldOf: number[] = PACKS.flatMap((p, w) => p.levels.map(() => w));
@@ -317,11 +319,20 @@ game.on((e) => {
       hud.refresh();
     }
     if (mode === 'campaign') {
+      const pack = PACKS[worldOf[game.index] ?? 0];
+      const complete = () => !!pack && pack.levels.every((l) => progress.solved(l.id));
       const before = openWorlds();
+      const wasComplete = complete();
       progress.markSolved(game.level.id, game.piecesUsed, game.hintsUsed);
       const after = openWorlds();
       const opened = after.findIndex((o, w) => o && !before[w]);
       if (opened >= 0) hud.say(`${PACKS[opened]!.name} is now open.`);
+      if (pack && !wasComplete && complete()) {
+        // The last unsolved level of a world: a bigger moment (D-068).
+        renderer.celebrateWorld();
+        sound.world();
+        hud.celebrate(`${pack.name} complete`);
+      }
     }
   }
 });
@@ -350,13 +361,34 @@ select.onPick = (i) => {
   game.load(i);
 };
 const soundButton = document.querySelector<HTMLButtonElement>('#levels-sound')!;
-const syncSoundButton = () => (soundButton.textContent = `Sound: ${sound.enabled ? 'on' : 'off'}`);
+const syncSoundButton = () => {
+  soundButton.textContent = `Sound: ${sound.enabled ? 'on' : 'off'}`;
+  soundButton.setAttribute('aria-pressed', String(sound.enabled));
+};
 soundButton.addEventListener('click', () => {
   sound.toggle();
   syncSoundButton();
   hud.refresh();
 });
 syncSoundButton();
+
+// ── display settings: colour symbols and reduced motion (D-066, D-067) ──
+const symbolsButton = document.querySelector<HTMLButtonElement>('#opt-symbols')!;
+const motionButton = document.querySelector<HTMLButtonElement>('#opt-motion')!;
+const applySettings = (): void => {
+  setDisplay({ symbols: settings.symbols, reduceMotion: settings.reduceMotion });
+  document.documentElement.classList.toggle('symbols', settings.symbols);
+  document.documentElement.classList.toggle('reduce-motion', settings.reduceMotion);
+  symbolsButton.textContent = `Colour symbols: ${settings.symbols ? 'on' : 'off'}`;
+  symbolsButton.setAttribute('aria-pressed', String(settings.symbols));
+  motionButton.textContent = `Reduce motion: ${settings.reduceMotion ? 'on' : 'off'}${settings.motionChoice === null ? ' (system)' : ''}`;
+  motionButton.setAttribute('aria-pressed', String(settings.reduceMotion));
+};
+settings.on(applySettings);
+applySettings();
+symbolsButton.addEventListener('click', () => (settings.symbols = !settings.symbols));
+motionButton.addEventListener('click', () => (settings.reduceMotion = !settings.reduceMotion));
+
 select.daily = () => {
   const date = todayLocal();
   const r = daily.result(date);
@@ -486,5 +518,5 @@ requestAnimationFrame(frame);
 
 // Dev-only handle for automated browser checks; stripped from production builds.
 if (import.meta.env.DEV) {
-  (window as unknown as Record<string, unknown>).__pl = { game, input, layout: () => layout, editor: () => editor, progress, sound, select, daily, session: () => session, endless, run: () => run };
+  (window as unknown as Record<string, unknown>).__pl = { game, input, layout: () => layout, editor: () => editor, progress, sound, select, daily, session: () => session, endless, run: () => run, settings, renderer };
 }

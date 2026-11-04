@@ -1,6 +1,6 @@
 import type { Board } from '../core/board';
 import type { Hint } from '../core/hint';
-import { rgba, type Color } from '../core/color';
+import { BLUE, GREEN, RED, rgba, type Color } from '../core/color';
 import { canMove, canRotate, KINDS, rotDegrees, type Piece } from '../core/piece';
 import { arrivals, segments, type Segment, type Trace } from '../core/trace';
 import type { Drag, Preview } from './input';
@@ -79,7 +79,27 @@ interface Particle {
   size: number;
 }
 
-const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+/** Display options shared by every drawer (D-066, D-067). */
+const display = { symbols: false, reduceMotion: null as boolean | null };
+
+/** Colour symbols on or off; reduce motion on, off, or null to follow the system. */
+export function setDisplay(opts: { symbols: boolean; reduceMotion: boolean | null }): void {
+  display.symbols = opts.symbols;
+  display.reduceMotion = opts.reduceMotion;
+}
+
+export const systemReducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+const reducedMotion = (): boolean => display.reduceMotion ?? systemReducedMotion();
+
+/** A ring of light spreading from a point (level solved), in cell units. */
+interface Ripple {
+  x: number;
+  y: number;
+  color: Color;
+  delay: number;
+  age: number;
+  reach: number;
+}
 
 /** Shortest signed difference a → b on a circle of `period` degrees. */
 function angleDelta(a: number, b: number, period: number): number {
@@ -100,6 +120,9 @@ export class Renderer {
   private lastMs = 0;
   private emitDebt = new Map<number, number>();
   private fadeStart = -1;
+  private ripples: Ripple[] = [];
+  /** World complete: a band of light sweeping across the board; -1 when idle. */
+  private sweep = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -114,13 +137,23 @@ export class Renderer {
     this.fadeStart = reducedMotion() ? -1 : -2; // resolved to a timestamp on the next frame
     // Nothing from the previous level carries over: sparks, emission debt, eased angles.
     this.particles = [];
+    this.ripples = [];
+    this.sweep = -1;
     this.emitDebt.clear();
     this.angles.clear();
   }
 
-  /** A gentle burst from each target, e.g. when the level is solved. */
+  /** A gentle burst from each target, and rings of light spreading from it, when the level is solved. */
   celebrate(targets: readonly { cell: number; want: Color }[], cols: number): void {
-    const n = reducedMotion() ? 6 : 26;
+    const calm = reducedMotion();
+    const n = calm ? 0 : 26;
+    targets.forEach((t, k) => {
+      const x = (t.cell % cols) + 0.5;
+      const y = Math.floor(t.cell / cols) + 0.5;
+      // Reduced motion: one soft glow that fades in place instead of spreading rings.
+      if (calm) this.ripples.push({ x, y, color: t.want, delay: 0, age: 0, reach: 0 });
+      else for (let r = 0; r < 2; r++) this.ripples.push({ x, y, color: t.want, delay: k * 0.08 + r * 0.22, age: 0, reach: 2.6 });
+    });
     for (const t of targets) {
       for (let k = 0; k < n; k++) {
         const a = Math.random() * Math.PI * 2;
@@ -137,6 +170,11 @@ export class Renderer {
         });
       }
     }
+  }
+
+  /** A whole world is complete: a slow band of light crosses the board (a soft flash with reduced motion). */
+  celebrateWorld(): void {
+    this.sweep = 0;
   }
 
   resize(width: number, height: number): void {
@@ -158,12 +196,14 @@ export class Renderer {
     this.beams(view.board, view.trace, L, time, game.solved && !input.preview);
     this.updateParticles(view.board, view.trace, dt);
     this.drawParticles(L);
+    this.drawRipples(L, dt);
     this.pieces(view.board, view.trace, L, time, dt);
     this.interaction(game.board, input, L, nowMs);
     if (!input.drag && game.hintShown) this.hint(game.board, game.hintShown, L, time);
     this.tray(game.board, input, L, time, input.drag ? null : game.hintShown);
     this.ghost(input, L, time);
     this.cursor(input, L, time);
+    this.drawSweep(view.board, L, dt);
     if (this.fadeStart === -2) this.fadeStart = nowMs;
     if (this.fadeStart >= 0) {
       const k = (nowMs - this.fadeStart) / 450;
@@ -175,6 +215,75 @@ export class Renderer {
         ctx.globalAlpha = 1;
       }
     }
+  }
+
+  private drawRipples(L: Layout, dt: number): void {
+    if (!this.ripples.length) return;
+    const ctx = this.ctx;
+    const s = L.cell;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const r of this.ripples) {
+      r.age += dt;
+      const k = (r.age - r.delay) / (r.reach ? 1.1 : 0.9);
+      if (k <= 0 || k >= 1) continue;
+      const px = L.bx + r.x * s;
+      const py = L.by + r.y * s;
+      if (!r.reach) {
+        // Calm version: brighten and fade, no movement.
+        const a = Math.sin(k * Math.PI) * 0.45;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, s * 1.1);
+        g.addColorStop(0, rgba(r.color, a));
+        g.addColorStop(1, rgba(r.color, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(px - s * 1.1, py - s * 1.1, s * 2.2, s * 2.2);
+        continue;
+      }
+      const e = 1 - (1 - k) * (1 - k);
+      ctx.strokeStyle = rgba(r.color, 0.55 * (1 - k));
+      ctx.lineWidth = Math.max(1, s * 0.06 * (1 - k * 0.6));
+      ctx.beginPath();
+      ctx.arc(px, py, s * (0.3 + r.reach * e), 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+    this.ripples = this.ripples.filter((r) => r.age - r.delay < 1.2);
+  }
+
+  private drawSweep(b: Board, L: Layout, dt: number): void {
+    if (this.sweep < 0) return;
+    this.sweep += dt;
+    const calm = reducedMotion();
+    const k = this.sweep / (calm ? 1 : 1.6);
+    if (k >= 1) {
+      this.sweep = -1;
+      return;
+    }
+    const ctx = this.ctx;
+    const x0 = L.bx;
+    const y0 = L.by;
+    const w = b.w * L.cell;
+    const h = b.h * L.cell;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath();
+    ctx.rect(x0, y0, w, h);
+    ctx.clip();
+    if (calm) {
+      ctx.fillStyle = `rgba(255,248,236,${0.16 * Math.sin(k * Math.PI)})`;
+      ctx.fillRect(x0, y0, w, h);
+    } else {
+      // A soft diagonal band of warm white, left to right.
+      const band = Math.max(w, h) * 0.35;
+      const cx = x0 - band + (w + band * 2) * (k * k * (3 - 2 * k));
+      const g = ctx.createLinearGradient(cx - band, y0, cx + band, y0 + h * 0.4);
+      g.addColorStop(0, 'rgba(255,248,236,0)');
+      g.addColorStop(0.5, 'rgba(255,248,236,0.22)');
+      g.addColorStop(1, 'rgba(255,248,236,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x0, y0, w, h);
+    }
+    ctx.restore();
   }
 
   /** Keyboard cursor: a bright, softly breathing ring around the cell. */
@@ -380,6 +489,21 @@ export class Renderer {
       ctx.fillRect(px - r, py - r, r * 2, r * 2);
     }
     ctx.restore();
+    if (display.symbols) this.beamSymbols(segs, L);
+  }
+
+  /** Colour symbols riding the beams, spaced out so they don't crowd (D-066). */
+  private beamSymbols(segs: readonly Segment[], L: Layout): void {
+    const s = L.cell;
+    const placed: { x: number; y: number; color: Color }[] = [];
+    for (const g of segs) {
+      if (g.end !== 'center') continue;
+      const x = (g.x1 + g.x2) / 2;
+      const y = (g.y1 + g.y2) / 2;
+      if (placed.some((p) => p.color === g.color && Math.hypot(p.x - x, p.y - y) < 1.9)) continue;
+      placed.push({ x, y, color: g.color });
+      drawColorBadge(this.ctx, g.color, L.bx + x * s, L.by + y * s, s * 0.11);
+    }
   }
 
   /**
@@ -666,6 +790,53 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: numb
     case 'portal':
       drawPortal(ctx, p, cx, cy, s, style.lit ?? 0, style.time, icon);
       break;
+  }
+  if (display.symbols && s >= 30 && (p.kind === 'emitter' || p.kind === 'target' || p.kind === 'filter')) {
+    // Top-left corner, clear of the tray count and the piece's own silhouette.
+    const u = s * 0.15;
+    const n = [RED, GREEN, BLUE].filter((c) => p.color & c).length;
+    const half = (n * u + (n - 1) * u * 0.35) / 2 + u * 0.35;
+    drawColorBadge(ctx, p.color, cx - s * 0.48 + half, cy - s * 0.38, u);
+  }
+  ctx.restore();
+}
+
+/**
+ * Colour symbols (D-066): one shape per light channel — red ▲, green ■,
+ * blue ● — so a mixed colour shows its parts (yellow = ▲■, white = ▲■●).
+ * Light shapes on a dark badge read on any background.
+ */
+function drawColorBadge(ctx: CanvasRenderingContext2D, color: Color, cx: number, cy: number, u: number): void {
+  const parts = [RED, GREEN, BLUE].filter((c) => color & c);
+  if (!parts.length) return;
+  const gap = u * 0.35;
+  const pad = u * 0.35;
+  const width = parts.length * u + (parts.length - 1) * gap;
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(6,8,14,0.88)';
+  ctx.strokeStyle = rgba(color, 0.9);
+  ctx.lineWidth = Math.max(1, u * 0.14);
+  ctx.beginPath();
+  ctx.roundRect(cx - width / 2 - pad, cy - u / 2 - pad, width + pad * 2, u + pad * 2, u * 0.45);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#f4f6ff';
+  let x = cx - width / 2 + u / 2;
+  for (const c of parts) {
+    ctx.beginPath();
+    if (c === RED) {
+      ctx.moveTo(x, cy - u * 0.5);
+      ctx.lineTo(x + u * 0.55, cy + u * 0.45);
+      ctx.lineTo(x - u * 0.55, cy + u * 0.45);
+      ctx.closePath();
+    } else if (c === GREEN) {
+      ctx.rect(x - u * 0.42, cy - u * 0.42, u * 0.84, u * 0.84);
+    } else {
+      ctx.arc(x, cy, u * 0.47, 0, TAU);
+    }
+    ctx.fill();
+    x += u + gap;
   }
   ctx.restore();
 }
