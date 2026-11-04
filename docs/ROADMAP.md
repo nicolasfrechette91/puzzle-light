@@ -119,7 +119,7 @@ All design decisions, with the policy used to make them, live in
 ## Open questions for the owner
 
 * Licence (D-046).
-* Merge the development branch into `main` to trigger the first deployment.
+* There is no `main` branch yet: the development branch is the only (and default) branch. Create `main` from it, or run the deploy workflow by hand, after enabling Pages with the GitHub Actions source.
 
 ## Handoff notes
 
