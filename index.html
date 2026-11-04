@@ -13,12 +13,17 @@
   </head>
   <body>
     <div id="app">
+      <section id="play-view" class="view">
       <header class="hud">
         <div class="title">
           <span id="level-num" class="num"></span>
           <h1 id="level-name"></h1>
         </div>
         <nav class="controls" aria-label="Game controls">
+          <button id="btn-edit" class="btn" type="button" aria-label="Level editor" title="Level editor">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></svg>
+          </button>
+          <span class="sep" aria-hidden="true"></span>
           <button id="btn-prev" class="btn" type="button" aria-label="Previous level" title="Previous level ( [ )">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
           </button>
@@ -54,6 +59,93 @@
         <span class="fine">Click to rotate · right-click to rotate back · drag pieces from the tray · Z / Y undo &amp; redo</span>
         <span class="coarse">Tap to rotate · hold to rotate back · drag pieces from the tray</span>
       </footer>
+      </section>
+
+      <section id="edit-view" class="view" hidden>
+        <header class="hud">
+          <div class="title">
+            <span class="num">Editor</span>
+            <input id="ed-name" class="name-input" maxlength="40" aria-label="Level name" />
+          </div>
+          <nav class="controls" aria-label="Editor controls">
+            <button id="ed-exit" class="btn" type="button" aria-label="Back to the game" title="Back to the game">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7" /><path d="M6 10v10h12V10" /></svg>
+            </button>
+            <span class="sep" aria-hidden="true"></span>
+            <button id="ed-undo" class="btn" type="button" aria-label="Undo" title="Undo (Z)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+            </button>
+            <button id="ed-redo" class="btn" type="button" aria-label="Redo" title="Redo (Y)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
+            </button>
+            <span class="sep" aria-hidden="true"></span>
+            <button id="ed-test" class="btn" type="button" aria-label="Test play" title="Test play (T)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z" /></svg>
+            </button>
+            <button id="ed-share" class="btn" type="button" aria-label="Copy share link" title="Copy share link">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
+            </button>
+            <button id="ed-save" class="btn" type="button" aria-label="Save to my levels" title="Save to My levels (needs a verified solution)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4" /><path d="M8 20v-6h8v6" /></svg>
+            </button>
+          </nav>
+        </header>
+        <div class="status" aria-live="polite"><p id="ed-status"></p></div>
+        <div class="editor-body">
+          <main id="ed-stage" class="ed-stage">
+            <canvas id="ed-canvas" aria-label="Level being edited"></canvas>
+          </main>
+          <aside class="panel" aria-label="Editor tools">
+            <section>
+              <h2>Pieces</h2>
+              <div id="ed-tools" class="tools"></div>
+              <div id="ed-colors" class="swatches" aria-label="Colour"></div>
+              <div id="ed-links" class="swatches" aria-label="Portal pair"></div>
+              <div id="ed-lock" class="segmented" role="group" aria-label="What the player may do">
+                <button type="button" data-lock="fixed" title="Part of the puzzle">Fixed</button>
+                <button type="button" data-lock="rotate" title="The player may turn it">Turns</button>
+                <button type="button" data-lock="free" title="The player may move it">Moves</button>
+              </div>
+            </section>
+            <section>
+              <h2>Tray</h2>
+              <div id="ed-tray" class="chips"></div>
+              <button id="ed-tray-add" type="button" class="pill small">Add brush piece to tray</button>
+            </section>
+            <section>
+              <h2>Level</h2>
+              <div class="row wrap">
+                <span class="label">Width</span>
+                <button id="ed-w-dec" type="button" class="chip-btn" aria-label="Narrower">−</button>
+                <span id="ed-wv" class="size"></span>
+                <button id="ed-w-inc" type="button" class="chip-btn" aria-label="Wider">+</button>
+                <span class="label">Height</span>
+                <button id="ed-h-dec" type="button" class="chip-btn" aria-label="Shorter">−</button>
+                <span id="ed-hv" class="size"></span>
+                <button id="ed-h-inc" type="button" class="chip-btn" aria-label="Taller">+</button>
+              </div>
+              <label class="field">Note <input id="ed-note" maxlength="90" placeholder="Shown with the level" /></label>
+              <div class="row">
+                <label class="field inline">Par <input id="ed-par" type="number" min="0" max="20" inputmode="numeric" placeholder="none" /></label>
+                <label class="check"><input id="ed-bends" type="checkbox" /> 90° bends only</label>
+              </div>
+            </section>
+            <section>
+              <h2>Solver</h2>
+              <div id="ed-check" aria-live="polite"></div>
+            </section>
+            <section>
+              <h2>My levels</h2>
+              <div id="ed-mine"></div>
+              <div class="row wrap">
+                <button id="ed-new" type="button" class="chip-btn">New</button>
+                <button id="ed-import" type="button" class="chip-btn">Import JSON</button>
+                <button id="ed-export" type="button" class="chip-btn">Copy JSON</button>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

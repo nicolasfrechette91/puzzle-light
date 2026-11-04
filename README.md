@@ -26,7 +26,18 @@ npm run build      # typecheck + static build into dist/
 | undo / redo / reset | `Z` / `Y` (or `Shift+Z`) / `R` | toolbar |
 | previous / next level | `[` / `]` | toolbar |
 
+## Level editor
+
+Open it with the pencil button (or go to `#edit`):
+
+* Paint pieces, set what the player may do with each one (fixed, turns,
+  moves), and fill the tray.
+* The solver checks the level as you build, and **Save** unlocks once a
+  solution is verified.
+* **Test** to play it, **Share** to copy a link that opens it for anyone.
+
 ## Docs
 
 * [docs/DESIGN.md](docs/DESIGN.md): architecture, data model, level format, tracing
-* [docs/ROADMAP.md](docs/ROADMAP.md): milestones, decisions, what's next
+* [docs/ROADMAP.md](docs/ROADMAP.md): milestones and what's next
+* [docs/DECISIONS.md](docs/DECISIONS.md): decision policy and log

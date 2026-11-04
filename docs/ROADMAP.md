@@ -9,8 +9,8 @@ unattended runs). Every milestone ends with a commit and a push.
 | 2 | Optics: additive mixing, prisms, splitters, filters, glass, black holes, portals | **done** |
 | 3 | Solver + CI level validation | **done** |
 | 4 | Content: 40+ levels, 5 worlds, par, solver hints | **done** |
-| 5 | Level editor, test-play, solver check, share via URL hash | next |
-| 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | |
+| 5 | Level editor, test-play, solver check, share via URL hash | **done** |
+| 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | next |
 | 7 | GitHub Pages deploy, README with GIF/screenshots | |
 
 ## M1: delivered
@@ -78,6 +78,20 @@ All design decisions, with the policy used to make them, live in
   alone solves every level checked in the browser.
 * World 1 is enforced as `bends: 90` by a test; sample levels moved to
   `tests/fixtures` (D-026).
+
+## M5: delivered
+
+* `#edit` opens the editor (pencil button in the game):
+  * Tools: paint pieces, colours, portal pairs, lock mode and the tray.
+  * Level settings: board size, note, par, 90° bends.
+  * Undo/redo, with live beams while you build.
+* The solver runs in a Web Worker after every edit. **Save** needs a verified
+  solution (D-033), and each solution can be previewed on the board.
+* **Test play** (`#test`, or `T`) and back. **Share** copies a
+  `#play=1.<code>` link (D-030); shared levels can be edited as a copy.
+* My levels (localStorage), JSON import/export, auto-saved draft (D-034).
+* The editor is lazy-loaded (D-035). Its model is DOM-free and unit-tested
+  (`tests/editor.test.ts`); share codes are tested in `tests/share.test.ts`.
 
 ## Handoff notes
 

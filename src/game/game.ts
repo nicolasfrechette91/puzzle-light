@@ -19,7 +19,7 @@ export type GameEvent =
  * history snapshots are never mutated.
  */
 export class Game {
-  readonly levels: LevelData[];
+  levels: LevelData[];
   index = 0;
   level!: LevelData;
   board!: Board;
@@ -50,6 +50,13 @@ export class Game {
 
   private emit(e: GameEvent): void {
     for (const fn of this.listeners) fn(e);
+  }
+
+  /** Switch to another list of levels (campaign, a test level, a shared level). */
+  setLevels(levels: LevelData[], index = 0): void {
+    if (levels.length === 0) throw new Error('no levels');
+    this.levels = levels;
+    this.load(index);
   }
 
   load(index: number): void {

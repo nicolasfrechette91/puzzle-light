@@ -10,10 +10,17 @@ const $ = <T extends HTMLElement>(sel: string): T => {
   return el;
 };
 
+/** Where the levels being played come from. */
+export type PlayMode = 'campaign' | 'test' | 'shared';
+
 /** DOM toolbar, level text, solved banner and keyboard shortcuts. */
 export class Hud {
   private readonly game: Game;
   private readonly input: Input;
+  private mode: PlayMode = 'campaign';
+  private notice = '';
+  /** Called by the pencil button: open the editor (or go back to it). */
+  onEdit: () => void = () => {};
   private readonly el = {
     num: $('#level-num'),
     name: $('#level-name'),
@@ -27,6 +34,8 @@ export class Hud {
     redo: $<HTMLButtonElement>('#btn-redo'),
     reset: $<HTMLButtonElement>('#btn-reset'),
     hint: $<HTMLButtonElement>('#btn-hint'),
+    edit: $<HTMLButtonElement>('#btn-edit'),
+    view: $('#play-view'),
   };
 
   constructor(game: Game, input: Input) {
@@ -40,12 +49,31 @@ export class Hud {
     el.redo.addEventListener('click', () => game.redo());
     el.reset.addEventListener('click', () => game.reset());
     el.hint.addEventListener('click', () => game.hint());
+    el.edit.addEventListener('click', () => this.onEdit());
     window.addEventListener('keydown', this.onKey);
-    game.on(() => this.update());
+    game.on((e) => {
+      if (e === 'level') this.notice = '';
+      this.update();
+    });
+    this.update();
+  }
+
+  setMode(mode: PlayMode): void {
+    this.mode = mode;
+    const label = mode === 'test' ? 'Back to the editor' : mode === 'shared' ? 'Edit a copy in the editor' : 'Level editor';
+    this.el.edit.title = label;
+    this.el.edit.setAttribute('aria-label', label);
+    this.update();
+  }
+
+  /** A one-off message in the status line (cleared by the next level change). */
+  say(message: string): void {
+    this.notice = message;
     this.update();
   }
 
   private onKey = (e: KeyboardEvent): void => {
+    if (this.el.view.hidden) return;
     if (e.altKey || (e.target instanceof HTMLElement && e.target.closest('input, textarea, select'))) return;
     const g = this.game;
     const mod = e.ctrlKey || e.metaKey;
@@ -71,7 +99,16 @@ export class Hud {
     // World levels are numbered "w-n"; anything else (e.g. injected while developing) falls back to an index.
     const [w, n] = g.level.id.split('-').map(Number) as [number, number];
     const world = PACKS[w - 1];
-    el.num.textContent = world && n ? `${world.name} · ${n}` : `${g.index + 1} / ${g.levels.length}`;
+    el.num.textContent =
+      this.mode === 'test'
+        ? 'Testing'
+        : this.mode === 'shared'
+          ? 'Shared level'
+          : world && n
+            ? `${world.name} · ${n}`
+            : `${g.index + 1} / ${g.levels.length}`;
+    const campaign = this.mode === 'campaign';
+    el.prev.hidden = el.next.hidden = !campaign;
     el.name.textContent = g.level.name;
     document.title = `${g.level.name} · Puzzle Light`;
     el.prev.disabled = !g.hasPrev;
@@ -80,7 +117,7 @@ export class Hud {
     el.redo.disabled = !g.canRedo;
     el.hint.disabled = g.solved;
 
-    el.note.textContent = g.hintShown ? describeHint(g, g.hintShown) : (g.level.note ?? '');
+    el.note.textContent = g.hintShown ? describeHint(g, g.hintShown) : this.notice || (g.level.note ?? '');
     el.note.classList.toggle('hinting', !!g.hintShown);
     el.note.hidden = g.solved;
     el.solved.hidden = !g.solved;
@@ -89,7 +126,7 @@ export class Hud {
       const used = g.piecesUsed;
       el.solvedText.textContent =
         par === undefined ? 'Solved' : used <= par ? `Solved · ${used} of par ${par} ✦` : `Solved · ${used} pieces (par ${par})`;
-      el.cont.hidden = !g.hasNext;
+      el.cont.hidden = !g.hasNext || !campaign;
     }
   }
 }

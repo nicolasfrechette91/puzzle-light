@@ -212,3 +212,37 @@ Process:
 * **Question:** What does the level counter show?
 * **Choice:** "World · n" (e.g. "Reflection · 3"). Four levels that shared their world's name were renamed.
 * **Reason:** Players see where they are in the progression; the full level select comes in M6.
+
+### D-030 · Share-code format (M5, by: claude)
+* **Question:** How is a level encoded in a URL hash?
+* **Options:** A custom compact text format; deflate plus base64 (CompressionStream, async); minified JSON as base64url with a version prefix.
+* **Choice:** `#play=1.<base64url(JSON)>`. Validated on decode, with readable errors. Typical length is 200–700 characters.
+* **Reason:** Simplest, no dependencies, synchronous; it reuses the single JSON level format (policy 4), and the version prefix leaves room to change it later.
+
+### D-031 · Editor modes live in the URL hash (M5, by: claude)
+* **Question:** How do the campaign, editor, test play and shared levels relate?
+* **Choice:** `#edit`, `#edit=<code>`, `#test`, `#play=<code>`, and nothing for the campaign. The pencil button opens the editor, returns from a test, or opens "edit a copy" of a shared level. The browser's back button moves between modes. The campaign keeps its place.
+* **Reason:** Links and the back button just work; one page, no router dependency.
+
+### D-032 · Editor interactions (M5, by: claude)
+* **Question:** How does painting work?
+* **Choice:**
+  * Click paints the brush. Clicking a matching piece turns it, or changes its lock if the brush's lock differs.
+  * Right-click erases. Dragging paints only walls, glass or erase. The wheel turns pieces. Touch: tap to paint, long-press to erase.
+  * Locks the rules forbid are disabled in the lock control (D-013).
+* **Reason:** Fast to build with, and impossible to create a piece the game rejects.
+
+### D-033 · Solver check before saving (M5, by: claude)
+* **Question:** What does "solver check before saving" mean in practice?
+* **Choice:** The solver runs automatically in a Web Worker 350 ms after each edit, with an 8 s budget; a newer edit cancels the older search. **Save** is enabled only when a finished check of exactly the current state found at least one solution. Non-unique levels can be saved, with a warning (policy 2: "ideally" unique). Each found solution can be previewed on the board.
+* **Reason:** The rule is enforced, not just advised, without ever blocking the UI.
+
+### D-034 · Where custom levels are stored (M5, by: claude)
+* **Question:** Where do drafts and saved levels live?
+* **Choice:** `localStorage` (`puzzle-light:draft`, `puzzle-light:my-levels`), with every access guarded. JSON import and export cover moving levels between devices; share links cover sharing.
+* **Reason:** Static site, no backend; storage failures degrade to "not remembered".
+
+### D-035 · The editor loads on demand (M5, by: claude)
+* **Question:** Should players download the editor?
+* **Choice:** It is a dynamic `import()`, and the solver worker is its own chunk.
+* **Reason:** The game stays about 54 kB of JS before gzip; the editor adds about 18 kB, the worker about 10 kB.

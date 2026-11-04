@@ -32,12 +32,18 @@ src/
     history.ts          undo/redo stack with coalescing
     solver.ts           beam-guided exhaustive solver (counts, min pieces, difficulty)
     hint.ts             next step towards the nearest solution, in light order
+    share.ts            level ⇄ URL share code (versioned base64url JSON)
   game/                 browser-only
     game.ts             controller: level, board, history, trace, win state
     layout.ts           responsive geometry + hit testing
     input.ts            pointer/keyboard → game actions (tap, drag, long-press)
     render.ts           canvas drawing
     hud.ts              DOM toolbar, notes, win banner
+  editor/               level editor (lazy-loaded)
+    model.ts            DOM-free editable level with undo; problem() explains what's missing
+    editor-ui.ts        canvas painting + side panel; auto solver check; save/share/test
+    solve.worker.ts     solver off the main thread (time-budgeted)
+    storage.ts          guarded localStorage: draft + My levels
   levels/
     index.ts            world packs (JSON imported at build time)
     world1..5.json      { id, name, blurb, levels: LevelData[] }

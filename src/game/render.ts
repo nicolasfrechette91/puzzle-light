@@ -3,9 +3,27 @@ import type { Hint } from '../core/hint';
 import { rgba, type Color } from '../core/color';
 import { canMove, canRotate, KINDS, rotDegrees, type Piece } from '../core/piece';
 import { arrivals, segments, type Segment, type Trace } from '../core/trace';
-import type { Game } from './game';
-import { LONG_PRESS_MS, type Input } from './input';
+import type { Drag, Preview } from './input';
+import { LONG_PRESS_MS } from './input';
 import type { Layout } from './layout';
+
+/** What the renderer needs from the game (Game satisfies it; so does the editor). */
+export interface GameView {
+  board: Board;
+  trace: Trace;
+  solved: boolean;
+  hintShown: Hint | null;
+}
+
+/** What the renderer needs from input handling (Input satisfies it; so does the editor). */
+export interface InputView {
+  preview: Preview | null;
+  drag: Drag | null;
+  hoverCell: number;
+  hoverSlot: number;
+  selectedSlot: number;
+  pressStart: { cell: number; t0: number } | null;
+}
 
 const TAU = Math.PI * 2;
 const DEG = Math.PI / 180;
@@ -62,7 +80,7 @@ export class Renderer {
     this.canvas.height = Math.max(1, Math.round(height * this.dpr));
   }
 
-  draw(game: Game, input: Input, L: Layout, nowMs: number): void {
+  draw(game: GameView, input: InputView, L: Layout, nowMs: number): void {
     const ctx = this.ctx;
     const time = nowMs / 1000;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -133,7 +151,7 @@ export class Renderer {
     ctx.fillRect(0, 0, L.width, L.height);
   }
 
-  private floor(b: Board, L: Layout, input: Input): void {
+  private floor(b: Board, L: Layout, input: InputView): void {
     const ctx = this.ctx;
     const s = L.cell;
     const tiles = new Path2D();
@@ -286,7 +304,7 @@ export class Renderer {
   }
 
   /** Hover outline, drop target and long-press progress. */
-  private interaction(b: Board, input: Input, L: Layout, nowMs: number): void {
+  private interaction(b: Board, input: InputView, L: Layout, nowMs: number): void {
     const ctx = this.ctx;
     const s = L.cell;
     const outline = (i: number, color: string, width: number) => {
@@ -324,7 +342,7 @@ export class Renderer {
     }
   }
 
-  private tray(b: Board, input: Input, L: Layout, time: number, hint: Hint | null): void {
+  private tray(b: Board, input: InputView, L: Layout, time: number, hint: Hint | null): void {
     const ctx = this.ctx;
     const t = L.tray;
     if (!t) return;
@@ -366,7 +384,7 @@ export class Renderer {
     });
   }
 
-  private ghost(input: Input, L: Layout, time: number): void {
+  private ghost(input: InputView, L: Layout, time: number): void {
     const d = input.drag;
     if (!d) return;
     const ctx = this.ctx;
@@ -379,6 +397,27 @@ export class Renderer {
     drawPiece(ctx, { ...d.piece, lock: 'free' }, d.x, d.y, L.cell * 1.05, { time, alpha: snapped ? 0.35 : 0.95 });
     ctx.restore();
   }
+}
+
+/** Draw one piece as an icon filling a small canvas (editor tools, tray chips). */
+export function drawPieceIcon(canvas: HTMLCanvasElement, p: Piece, sizeCss: number): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = Math.round(sizeCss * dpr);
+  canvas.height = Math.round(sizeCss * dpr);
+  canvas.style.width = `${sizeCss}px`;
+  canvas.style.height = `${sizeCss}px`;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, sizeCss, sizeCss);
+  if (p.kind === 'wall') {
+    ctx.fillStyle = '#2c3550';
+    ctx.beginPath();
+    ctx.roundRect(sizeCss * 0.12, sizeCss * 0.12, sizeCss * 0.76, sizeCss * 0.76, sizeCss * 0.12);
+    ctx.fill();
+    return;
+  }
+  drawPiece(ctx, p, sizeCss / 2, sizeCss / 2, sizeCss * 0.92, { time: 0, tray: true });
 }
 
 function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, style: PieceStyle): void {
@@ -416,6 +455,15 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: numb
       ctx.beginPath();
       ctx.roundRect(cx - s * 0.42, cy - s * 0.42, s * 0.84, s * 0.84, s * 0.12);
       ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(220,235,255,0.3)';
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 0.25, cy + s * 0.1);
+      ctx.lineTo(cx + s * 0.1, cy - s * 0.25);
+      ctx.moveTo(cx - s * 0.08, cy + s * 0.27);
+      ctx.lineTo(cx + s * 0.27, cy - s * 0.08);
       ctx.stroke();
       break;
     case 'wall':
