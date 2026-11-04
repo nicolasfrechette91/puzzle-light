@@ -1,13 +1,8 @@
 import type { Tier } from '../core/generate';
 import { PACKS } from '../levels';
+import { $ } from './dom';
 import type { Game } from './game';
 import { starsFor, UNLOCK_THRESHOLD, unlockedWorlds, type Progress } from './progress';
-
-const $ = <T extends HTMLElement>(sel: string): T => {
-  const el = document.querySelector<T>(sel);
-  if (!el) throw new Error(`missing ${sel}`);
-  return el;
-};
 
 /** The level select sheet: worlds, progress, par marks and world gates (D-036). */
 export class LevelSelect {

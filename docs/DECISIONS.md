@@ -647,3 +647,13 @@ Process:
   * **Hints follow the player:** the hint client is created with `supersede`. A request that arrives while another is running stops the worker (a search can't be interrupted otherwise), cancels the old request and starts afresh. The game ignores any answer except its newest, even for the same level loaded twice. After leaving Expert 7-5 mid-solve, the next level's hint took 45 ms instead of 487 ms.
   * **`#edit=<bad code>`:** the editor still opens on the draft, and its status line says why, as `#play=` does: "That link didn't work: share code is damaged. Here is your draft instead."
 * **Reason:** Each turns a silent assumption or a silent failure into something checked or shown (policies 1 and 2).
+
+### D-078 · One way to do each thing (post-audit, by: user + claude)
+* **Question:** The audit found the same job done in several places: matching a piece to its tray slot (solver, daily par, hints), two worker clients, two sets of storage helpers plus direct `localStorage` calls in the sound and daily code, three copies of `$`, two `LONG_PRESS_MS`, and some dead code.
+* **Choice:**
+  * **Piece identity** is `slotKey` everywhere (kind, colour and portal pair; orientation and lock ignored), including the solver's portal-twin lookup.
+  * **Workers:** the editor's `SolverClient` is gone. The editor uses `WorkerClient` with `supersede` (D-077), as hints do, and its worker replies in the shared `WorkerReply` shape. A cancelled check is simply ignored.
+  * **Storage:** `local-store.ts` is the only module that touches `localStorage` (`readString`, `writeString`, `readJson`, `writeJson`, `removeKeys`). The sound setting stays a plain `on`/`off` string, so saved preferences carry over.
+  * **`$`** lives in `game/dom.ts`; the editor imports `LONG_PRESS_MS` from the game's input.
+  * **Removed:** `Game.completed` (written, never read; progress replaced it in M6), `inTray`, `DIR_NAMES`, `isDiagonal` and `channels`.
+* **Reason:** Policy 3: one rule in one place can't drift. Every test, the level check and browser checks of the editor, hints and sound pass unchanged.

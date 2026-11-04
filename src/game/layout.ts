@@ -122,11 +122,6 @@ export function slotAt(L: Layout, px: number, py: number): number {
   return L.slots.findIndex((r) => px >= r.x && py >= r.y && px < r.x + r.w && py < r.y + r.h);
 }
 
-export function inTray(L: Layout, px: number, py: number): boolean {
-  const t = L.tray;
-  return !!t && px >= t.x && py >= t.y && px < t.x + t.w && py < t.y + t.h;
-}
-
 export function cellCenter(L: Layout, i: number): [number, number] {
   return [L.bx + ((i % L.cols) + 0.5) * L.cell, L.by + (Math.floor(i / L.cols) + 0.5) * L.cell];
 }

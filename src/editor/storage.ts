@@ -1,4 +1,5 @@
 import { checkLevelData, type LevelData } from '../core/level';
+import { readJson as read, writeJson as write } from '../game/local-store';
 
 /**
  * Browser storage for the editor. Every access is guarded: private windows,
@@ -6,24 +7,6 @@ import { checkLevelData, type LevelData } from '../core/level';
  */
 const DRAFT = 'puzzle-light:draft';
 const MINE = 'puzzle-light:my-levels';
-
-function read<T>(key: string): T | null {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: unknown): boolean {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export const loadDraft = (): LevelData | null => read<LevelData>(DRAFT);
 export const saveDraft = (level: LevelData): boolean => write(DRAFT, level);

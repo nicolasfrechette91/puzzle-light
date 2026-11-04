@@ -47,7 +47,9 @@ src/
     level-select.ts     level sheet: daily and endless cards, worlds, par marks
     generate.worker.ts  level generation off the main thread
     hint.worker.ts      solves the level being played, for hints
-    worker-client.ts    promise-based requests to both workers
+    worker-client.ts    promise-based requests to every worker; `supersede` cancels stale ones
+    local-store.ts      the only localStorage access: guarded reads and writes, field checks
+    dom.ts              `$`: an element the page must have
     daily-store.ts      daily results, streak, today's cached level
     endless-store.ts    endless progress per tier
     settings.ts         display settings: colour symbols, reduce motion

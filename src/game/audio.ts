@@ -1,4 +1,5 @@
 import type { Color } from '../core/color';
+import { readString, writeString } from './local-store';
 
 /**
  * All sound is synthesised with Web Audio; there are no audio files.
@@ -41,13 +42,7 @@ export class Sound {
   private chord = 0;
 
   constructor() {
-    let stored: string | null = null;
-    try {
-      stored = window.localStorage.getItem(KEY);
-    } catch {
-      // storage unavailable: default on
-    }
-    this.on = stored !== 'off';
+    this.on = readString(KEY) !== 'off'; // on unless turned off (or storage unavailable)
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) void this.ctx.suspend();
@@ -74,11 +69,7 @@ export class Sound {
 
   toggle(): boolean {
     this.on = !this.on;
-    try {
-      window.localStorage.setItem(KEY, this.on ? 'on' : 'off');
-    } catch {
-      // not remembered
-    }
+    writeString(KEY, this.on ? 'on' : 'off');
     if (this.on) this.unlock();
     else if (this.ctx) void this.ctx.suspend();
     return this.on;

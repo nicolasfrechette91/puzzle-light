@@ -4,17 +4,14 @@ import { KINDS, type Kind, type Lock, type Piece } from '../core/piece';
 import { encodeLevel } from '../core/share';
 import { applySolution, type SolveResult } from '../core/solver';
 import { trace, type Trace } from '../core/trace';
+import { $ } from '../game/dom';
+import { Cancelled, WorkerClient } from '../game/worker-client';
+import { LONG_PRESS_MS } from '../game/input';
 import { cellAt, computeLayout, type Layout } from '../game/layout';
 import { drawPieceIcon, Renderer, type GameView, type InputView } from '../game/render';
 import { canGoInTray, effectiveLock, EditorModel, MAX_H, MAX_W, MIN_H, MIN_W, type Brush } from './model';
-import { SolverClient } from './solver-client';
+import type { SolveRequest } from './solve.worker';
 import { deleteMyLevel, loadDraft, loadMyLevels, saveDraft, saveMyLevel } from './storage';
-
-const $ = <T extends HTMLElement>(sel: string): T => {
-  const el = document.querySelector<T>(sel);
-  if (!el) throw new Error(`missing ${sel}`);
-  return el;
-};
 
 type Tool = Kind | 'erase';
 
@@ -53,8 +50,9 @@ const TOOL_GROUPS: { name: string; tools: { kind: Tool; label: string; tip: stri
   },
 ];
 const ICON_PX = 28;
+/** Time the solver check may take before the level counts as too open to verify. */
+const CHECK_MS = 8000;
 const COLORS = [1, 2, 4, 3, 5, 6, 7];
-const LONG_PRESS_MS = 450;
 
 export interface EditorHost {
   /** Play the level being edited. */
@@ -90,7 +88,10 @@ export class EditorUI {
   private readonly canvas = $<HTMLCanvasElement>('#ed-canvas');
   private readonly stage = $<HTMLElement>('#ed-stage');
   private readonly renderer: Renderer;
-  private readonly solver = new SolverClient();
+  /** The solver check runs off the main thread; a newer edit cancels an older search (D-033). */
+  private readonly solver = new WorkerClient<SolveRequest, SolveResult>(() => new Worker(new URL('./solve.worker.ts', import.meta.url), { type: 'module' }), {
+    supersede: true,
+  });
   private layout: Layout;
   private size = { w: 1, h: 1 };
   private view: GameView;
@@ -177,12 +178,13 @@ export class EditorUI {
     if (this.check.state !== 'idle' && this.check.key === key) return;
     this.check = { state: 'running', key };
     this.checkTimer = window.setTimeout(() => {
-      this.solver.solve(this.model.toLevel()).then(
+      this.solver.request({ level: this.model.toLevel(), timeMs: CHECK_MS }).then(
         (result) => {
           if (this.check.state === 'running' && this.check.key === key) this.check = { state: 'done', key, result };
           this.renderPanel();
         },
         (err: Error) => {
+          if (err instanceof Cancelled) return; // a newer edit took over
           if (this.check.state === 'running' && this.check.key === key) this.check = { state: 'error', key, message: err.message };
           this.renderPanel();
         },

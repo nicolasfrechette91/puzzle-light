@@ -26,13 +26,6 @@ export function parseColor(ch: string): Color | undefined {
 
 export const colorLetter = (c: Color): string => LETTERS[c & 7]!;
 
-/** Single-channel components of a mask, low bit first. */
-export function channels(c: Color): Color[] {
-  const out: Color[] = [];
-  for (let bit = 1; bit <= 4; bit <<= 1) if (c & bit) out.push(bit);
-  return out;
-}
-
 /** Display colour for each mask (index = mask), tuned for a dark background. */
 export const COLOR_RGB: readonly (readonly [number, number, number])[] = [
   [0, 0, 0],

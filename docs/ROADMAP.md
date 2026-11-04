@@ -258,17 +258,29 @@ p90. Same sample as the audit (50 dailies, endless #1–30 per tier):
 | endless medium | 30 / 30 | 11.0 / 12.0 / 13.9 | 58 / 132 / 184 ms |
 | endless hard | 30 / 30 | 14.6 / 16.3 / 17.8 | 220 / 499 / 823 ms |
 
+## After the audit
+
+The owner asked for every audit recommendation, pushed to `main` in four
+groups:
+
+* **Generator v2** (above; D-073 to D-075).
+* **Rendering** (D-076): the bloom covers only the board, and the page stops
+  drawing once nothing moves; ambient motion settles 8 s after the last input.
+  Frame time on 1-1 went from 13.2 to 5.8 ms (52.1 to 21.5 ms at 2×), and on the
+  24×24 stress board from 51.8 to 44.4 ms. Idle frames dropped from 9–61 a
+  second to 0.
+* **Robustness** (D-077): the solver's corner assumption is a test, the shared
+  partner array is frozen, stale hint solves are cancelled, and a bad
+  `#edit=` link says why.
+* **Cleanup** (D-078): piece matching through `slotKey`, one worker client,
+  one storage module, one `$`, one `LONG_PRESS_MS`, and the dead code removed.
+
 ## Open questions for the owner
 
 * ~~Licence (D-046)~~: MIT, chosen by the owner (D-048).
 * ~~First deployment~~: Pages uses the GitHub Actions source, and `main` was created from the development branch; every push to `main` deploys to https://nicolasfrechette91.github.io/puzzle-light/.
-* **Audit recommendations** (subjective, so left unchanged). Any generator
-  change needs a `GENERATOR_VERSION` bump, which changes every daily and endless level.
-  * ~~**Easy floor, bands, clutter, names**~~: done in generator v2 (D-073,
-    D-074); see "Generator v2" above.
-  * ~~**Idle frames**~~: the bloom covers only the board, and the page stops
-    drawing once nothing moves (D-076).
-  * ~~**Hint queue**, **`#edit=<bad code>`**~~: done (D-077).
+* ~~**Audit recommendations**~~: all done at the owner's request (D-073 to
+  D-078); see "After the audit" above.
 
 ## Handoff notes
 

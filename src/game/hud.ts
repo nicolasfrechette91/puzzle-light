@@ -1,14 +1,9 @@
 import type { Hint } from '../core/hint';
 import { KINDS } from '../core/piece';
 import { PACKS } from '../levels';
+import { $ } from './dom';
 import type { Game } from './game';
 import type { Input } from './input';
-
-const $ = <T extends HTMLElement>(sel: string): T => {
-  const el = document.querySelector<T>(sel);
-  if (!el) throw new Error(`missing ${sel}`);
-  return el;
-};
 
 /** Where the levels being played come from. */
 export type PlayMode = 'campaign' | 'test' | 'shared' | 'daily' | 'endless';

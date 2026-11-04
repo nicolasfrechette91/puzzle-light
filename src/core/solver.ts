@@ -2,7 +2,7 @@ import type { Board } from './board';
 import { BLUE, RED } from './color';
 import { reflect } from './dir';
 import { canMove, canRotate, type Piece } from './piece';
-import { formatToken } from './token';
+import { formatToken, slotKey } from './token';
 import { arrivals, portalPartners, trace, type Arrival, type Trace } from './trace';
 
 /**
@@ -254,7 +254,8 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
     for (let q = 0; q < work.size; q++) {
       const p = work.cells[q];
       if (p?.kind !== 'portal' || partner[q]! >= 0 || !t.lit[q]) continue;
-      const slot = work.inv.findIndex((s) => s.count > 0 && s.proto.kind === 'portal' && s.proto.link === p.link);
+      const twin = slotKey(p);
+      const slot = work.inv.findIndex((s) => s.count > 0 && slotKey(s.proto) === twin);
       if (slot < 0) continue;
       for (let c = 0; c < work.size; c++) {
         if (work.cells[c] === null && !t.lit[c]) placeAndVisit(slot, c, 0); // lit cells were covered above
@@ -298,9 +299,8 @@ export function applySolution(start: Board, solution: Pick<Solution, 'placements
   });
   for (const { cell, piece } of solution.placements) {
     if (piece.lock === 'free') {
-      const slot = b.inv.findIndex(
-        (s) => s.count > 0 && s.proto.kind === piece.kind && s.proto.color === piece.color && s.proto.link === piece.link,
-      );
+      const key = slotKey(piece);
+      const slot = b.inv.findIndex((s) => s.count > 0 && slotKey(s.proto) === key);
       if (slot < 0 || !b.place(slot, cell, piece.rot)) throw new Error(`cannot place ${formatToken(piece)} at ${cell}`);
     } else {
       const p = b.cells[cell];

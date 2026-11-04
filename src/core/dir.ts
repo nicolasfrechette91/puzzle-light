@@ -15,14 +15,12 @@ export const NE = 7;
 
 export const DX: readonly number[] = [1, 1, 0, -1, -1, -1, 0, 1];
 export const DY: readonly number[] = [0, 1, 1, 1, 0, -1, -1, -1];
-export const DIR_NAMES: readonly string[] = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
 
 /** Rotate a direction by `steps` × 45° clockwise (negative = counter-clockwise). */
 export const turn = (d: Dir, steps: number): Dir => (d + steps) & 7;
 
 export const opposite = (d: Dir): Dir => (d + 4) & 7;
 
-export const isDiagonal = (d: Dir): boolean => (d & 1) === 1;
 
 /**
  * Reflect a beam travelling in direction `d` off a double-sided mirror whose

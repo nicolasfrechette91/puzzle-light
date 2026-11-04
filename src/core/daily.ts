@@ -3,6 +3,7 @@ import { generate, GENERATOR_VERSION, type Generated, type Tier } from './genera
 import { dailyName } from './names';
 import { KINDS } from './piece';
 import { seedFrom } from './random';
+import { slotKey } from './token';
 import type { Solution } from './solver';
 
 /**
@@ -57,7 +58,7 @@ export function dailyLevel(date: string): Generated | null {
 export function movesPar(start: Board, s: Solution): number {
   let moves = 0;
   for (const { cell, piece } of s.placements) {
-    const from = piece.lock === 'free' ? (start.inv.find((sl) => sl.proto.kind === piece.kind && sl.proto.color === piece.color && sl.proto.link === piece.link)?.proto.rot ?? 0) : (start.cells[cell]?.rot ?? 0);
+    const from = piece.lock === 'free' ? (start.inv.find((sl) => slotKey(sl.proto) === slotKey(piece))?.proto.rot ?? 0) : (start.cells[cell]?.rot ?? 0);
     if (piece.lock === 'free') moves++;
     const steps = KINDS[piece.kind].rotSteps;
     if (steps > 1) {

@@ -1,7 +1,7 @@
 import { type DailyResult, isDate, streakAfterSolve, streakOn, type StreakState } from '../core/daily';
 import { GENERATOR_VERSION } from '../core/generate';
 import { checkLevelData, parseLevel, type LevelData } from '../core/level';
-import { isCount, isRecord, readJson as read, writeJson as write } from './local-store';
+import { isCount, isRecord, readJson as read, removeKeys, writeJson as write } from './local-store';
 
 /**
  * Daily puzzle storage: first result per date, the streak, and today's level
@@ -93,15 +93,7 @@ export class DailyStore {
   }
 
   cacheLevel(date: string, c: CachedDaily): void {
-    // Only today's level is worth keeping.
-    try {
-      for (let i = window.localStorage.length - 1; i >= 0; i--) {
-        const k = window.localStorage.key(i);
-        if (k?.startsWith(LEVEL_PREFIX)) window.localStorage.removeItem(k);
-      }
-    } catch {
-      // ignore
-    }
+    removeKeys(LEVEL_PREFIX); // only today's level is worth keeping
     write(`${LEVEL_PREFIX}v${GENERATOR_VERSION}:${date}`, c);
   }
 }

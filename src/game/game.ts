@@ -28,8 +28,6 @@ export class Game {
   board!: Board;
   trace!: Trace;
   solved = false;
-  /** Level ids solved this session (persisted in M6). */
-  readonly completed = new Set<string>();
   /** The hint currently on display; cleared by any board change. */
   hintShown: Hint | null = null;
   /** Hints asked for on this level. */
@@ -219,10 +217,7 @@ export class Game {
     this.trace = trace(b);
     const was = this.solved;
     this.solved = this.trace.solved;
-    if (this.solved) {
-      this.completed.add(this.level.id);
-      this.hintPending = false;
-    }
+    if (this.solved) this.hintPending = false;
     this.emit('change');
     if (announce && this.solved && !was) this.emit('solved');
   }

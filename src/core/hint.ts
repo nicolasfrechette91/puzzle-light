@@ -1,6 +1,7 @@
 import type { Board } from './board';
 import { canMove, canRotate, type Piece } from './piece';
 import { applySolution, isActive, type Placement, type Solution } from './solver';
+import { slotKey } from './token';
 import { arrivals, nextCell, portalPartners, trace, type Trace } from './trace';
 
 /** The single next step a hint suggests. */
@@ -43,7 +44,8 @@ export function lightOrder(b: Board, t: Trace): number[] {
   return order;
 }
 
-const samePiece = (a: Piece, b: Piece) => a.kind === b.kind && a.color === b.color && a.link === b.link;
+/** The same piece apart from orientation and lock: kind, colour and portal pair. */
+const samePiece = (a: Piece, b: Piece) => slotKey(a) === slotKey(b);
 
 function satisfied(b: Board, pl: Placement): boolean {
   const p = b.cells[pl.cell];

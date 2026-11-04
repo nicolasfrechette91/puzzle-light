@@ -1,18 +1,49 @@
-/** Guarded localStorage JSON: private windows, blocked storage or quota errors just mean "not remembered". */
-export function readJson<T>(key: string): T | null {
+/**
+ * Every localStorage access in the game and the editor goes through here.
+ * Private windows, blocked storage or quota errors just mean "not
+ * remembered" (D-034): reads give null, writes report false.
+ */
+export function readString(key: string): string | null {
   try {
-    const raw = window.localStorage.getItem(key);
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function writeString(key: string, value: string): boolean {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Parsed JSON, or null if missing, unreadable or not JSON. */
+export function readJson<T>(key: string): T | null {
+  const raw = readString(key);
+  try {
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
   }
 }
 
-export function writeJson(key: string, value: unknown): void {
+export function writeJson(key: string, value: unknown): boolean {
+  return writeString(key, JSON.stringify(value));
+}
+
+/** Remove every key that starts with `prefix`. */
+export function removeKeys(prefix: string): void {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    const s = window.localStorage;
+    for (let i = s.length - 1; i >= 0; i--) {
+      const k = s.key(i);
+      if (k?.startsWith(prefix)) s.removeItem(k);
+    }
   } catch {
-    // not remembered
+    // nothing to remove, or not allowed to
   }
 }
 
