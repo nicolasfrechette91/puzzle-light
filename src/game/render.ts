@@ -101,6 +101,15 @@ interface Ripple {
   reach: number;
 }
 
+/**
+ * Ambient motion (beam shimmer, pulsing targets, the black hole's swirl,
+ * portal flow, sparks) runs while the player is active, then eases to a still
+ * frame this long after the last input or change, so the page stops drawing
+ * (D-076).
+ */
+const SETTLE_AFTER_MS = 8000;
+const SETTLE_MS = 1500;
+
 /** Shortest signed difference a → b on a circle of `period` degrees. */
 function angleDelta(a: number, b: number, period: number): number {
   return ((((b - a) % period) + period * 1.5) % period) - period / 2;
@@ -123,6 +132,14 @@ export class Renderer {
   private ripples: Ripple[] = [];
   /** World complete: a band of light sweeping across the board; -1 when idle. */
   private sweep = -1;
+  /** When the player last did anything (see `wake`). */
+  private lastWake = 0;
+  /** Strength of ambient motion, 1 while active, easing to 0 once settled. */
+  private ambient = 1;
+  /** Clock for ambient motion, in seconds: it slows to a stop as the board settles. */
+  private ambientClock = 0;
+  /** A piece is still turning towards its orientation. */
+  private tweening = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -183,13 +200,27 @@ export class Renderer {
     this.canvas.height = Math.max(1, Math.round(height * this.dpr));
   }
 
-  draw(game: GameView, input: InputView, L: Layout, nowMs: number): void {
+  /** The player did something (or the board changed): ambient motion resumes. */
+  wake(nowMs = performance.now()): void {
+    this.lastWake = nowMs;
+  }
+
+  /**
+   * Draw one frame. Returns whether anything is still moving, i.e. whether
+   * another frame is needed; when it returns false the caller can stop
+   * drawing until the next `wake` (D-076).
+   */
+  draw(game: GameView, input: InputView, L: Layout, nowMs: number): boolean {
     const ctx = this.ctx;
-    const time = nowMs / 1000;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const view = input.preview ?? { board: game.board, trace: game.trace };
     const dt = Math.min(0.1, Math.max(0, (nowMs - (this.lastMs || nowMs)) / 1000));
     this.lastMs = nowMs;
+    const quiet = nowMs - this.lastWake - SETTLE_AFTER_MS;
+    const k = Math.min(1, Math.max(0, quiet / SETTLE_MS));
+    this.ambient = 1 - k * k * (3 - 2 * k);
+    this.ambientClock += dt * this.ambient;
+    const time = this.ambientClock;
 
     this.background(L);
     this.floor(view.board, L, input);
@@ -215,6 +246,16 @@ export class Renderer {
         ctx.globalAlpha = 1;
       }
     }
+    return (
+      this.ambient > 0 ||
+      this.fadeStart !== -1 ||
+      this.tweening ||
+      this.particles.length > 0 ||
+      this.ripples.length > 0 ||
+      this.sweep >= 0 ||
+      !!input.drag ||
+      !!input.pressStart
+    );
   }
 
   private drawRipples(L: Layout, dt: number): void {
@@ -515,15 +556,20 @@ export class Renderer {
     const g = this.glowCtx;
     if (!g) return;
     const k = 0.25;
-    const w = Math.max(1, Math.ceil(L.width * k));
-    const h = Math.max(1, Math.ceil(L.height * k));
+    // Beams never leave the board, so the glow layer covers only the board
+    // plus a margin for the halo, not the whole canvas (D-076).
+    const m = L.cell * 0.6;
+    const x0 = L.bx - m;
+    const y0 = L.by - m;
+    const w = Math.max(1, Math.ceil((L.cols * L.cell + 2 * m) * k));
+    const h = Math.max(1, Math.ceil((L.rows * L.cell + 2 * m) * k));
     if (this.glow.width !== w || this.glow.height !== h) {
       this.glow.width = w;
       this.glow.height = h;
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, w, h);
-    g.setTransform(k, 0, 0, k, 0, 0);
+    g.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
     g.globalCompositeOperation = 'lighter';
     g.lineCap = 'round';
     g.lineJoin = 'round';
@@ -537,10 +583,10 @@ export class Renderer {
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(this.glow, 0, 0, w, h, 0, 0, w / k, h / k);
+    ctx.drawImage(this.glow, 0, 0, w, h, x0, y0, w / k, h / k);
     ctx.globalAlpha = 0.6;
     // A second, slightly enlarged pass widens the halo cheaply.
-    ctx.drawImage(this.glow, 0, 0, w, h, -L.cell * 0.15, -L.cell * 0.15, w / k + L.cell * 0.3, h / k + L.cell * 0.3);
+    ctx.drawImage(this.glow, 0, 0, w, h, x0 - L.cell * 0.15, y0 - L.cell * 0.15, w / k + L.cell * 0.3, h / k + L.cell * 0.3);
     ctx.restore();
   }
 
@@ -549,7 +595,7 @@ export class Renderer {
     const calm = reducedMotion();
     for (const tg of t.targets) {
       if (!tg.got) continue;
-      const rate = (tg.ok ? 7 : 2.5) * (calm ? 0.25 : 1);
+      const rate = (tg.ok ? 7 : 2.5) * (calm ? 0.25 : 1) * this.ambient;
       let debt = (this.emitDebt.get(tg.cell) ?? 0) + rate * dt;
       while (debt >= 1) {
         debt -= 1;
@@ -601,6 +647,7 @@ export class Renderer {
     const calm = reducedMotion();
     const ease = calm ? 1 : 1 - Math.exp(-dt * 16);
     const next = new Map<number, { kind: string; angle: number }>();
+    this.tweening = false;
     for (let i = 0; i < b.size; i++) {
       const p = b.cells[i];
       if (!p || p.kind === 'wall' || p.kind === 'glass') continue;
@@ -626,6 +673,7 @@ export class Renderer {
       const period = p.kind === 'mirror' || p.kind === 'splitter' ? 180 : 360;
       const prev = this.angles.get(i);
       const angle = prev && prev.kind === p.kind ? prev.angle + angleDelta(prev.angle, real, period) * ease : real;
+      if (Math.abs(angleDelta(angle, real, period)) > 0.05) this.tweening = true;
       next.set(i, { kind: p.kind, angle });
       style.angle = angle;
       drawPiece(this.ctx, p, cx, cy, s, style);

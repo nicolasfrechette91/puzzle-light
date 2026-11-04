@@ -266,9 +266,8 @@ p90. Same sample as the audit (50 dailies, endless #1–30 per tier):
   change needs a `GENERATOR_VERSION` bump, which changes every daily and endless level.
   * ~~**Easy floor, bands, clutter, names**~~: done in generator v2 (D-073,
     D-074); see "Generator v2" above.
-  * **Idle frames:** the canvas redraws at the full frame rate even when
-    nothing moves, and the bloom scales the whole viewport. Clipping the bloom
-    to the board and slowing down when idle would save battery on phones.
+  * ~~**Idle frames**~~: the bloom covers only the board, and the page stops
+    drawing once nothing moves (D-076).
   * **Hint queue:** switching levels quickly queues one solve per level in the
     hint worker, so the current level waits behind stale ones. Superseding
     stale requests, as the editor's solver does, would fix that.

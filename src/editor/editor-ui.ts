@@ -134,8 +134,14 @@ export class EditorUI {
     this.active = false;
   }
 
-  draw(now: number): void {
-    if (this.active) this.renderer.draw(this.view, this.input, this.layout, now);
+  /** Draw a frame if the editor is showing; returns whether anything still moves (D-076). */
+  draw(now: number): boolean {
+    return this.active && this.renderer.draw(this.view, this.input, this.layout, now);
+  }
+
+  /** Resume ambient motion after input. */
+  wake(): void {
+    this.renderer.wake();
   }
 
   // ── state ────────────────────────────────────────────────────────────────

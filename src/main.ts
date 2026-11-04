@@ -45,6 +45,33 @@ game.solveAsync = (level) => hints.request({ level });
 game.prepareHints();
 const renderer = new Renderer(canvas);
 
+// ── drawing: only while something moves (D-076) ──
+
+let frameQueued = false;
+/** Draw again; frames keep coming while the renderers report motion. */
+function requestFrame(): void {
+  if (frameQueued) return;
+  frameQueued = true;
+  requestAnimationFrame((now) => {
+    frameQueued = false;
+    let moving = false;
+    if (!playView.hidden) moving = renderer.draw(game, input, layout, now);
+    if (editor?.draw(now)) moving = true;
+    if (moving) requestFrame();
+  });
+}
+/** Something happened: ambient motion resumes and a frame is drawn. */
+function wake(): void {
+  renderer.wake();
+  editor?.wake();
+  requestFrame();
+}
+// Any input counts as activity, wherever it lands.
+for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'keydown', 'wheel'] as const) {
+  window.addEventListener(type, wake, { capture: true, passive: true });
+}
+document.addEventListener('visibilitychange', wake);
+
 let size = { w: 1, h: 1 };
 let layout: Layout = computeLayout(1, 1, game.board.w, game.board.h, game.board.inv.length);
 const relayout = (): void => {
@@ -60,6 +87,7 @@ new ResizeObserver(([entry]) => {
   size = { w: r.width, h: r.height };
   renderer.resize(size.w, size.h);
   relayout();
+  wake(); // resizing clears the canvas
 }).observe(stage);
 
 // ── modes: campaign, shared level, editor, test play (all driven by the URL hash) ──
@@ -261,6 +289,7 @@ let okBefore = new Set<number>();
 const okNow = () => new Set(game.trace.targets.filter((t) => t.ok).map((t) => t.cell));
 
 game.on((e) => {
+  wake();
   if (e === 'level' || game.board.inv.length !== layout.slots.length) relayout();
   if (e === 'level') {
     okBefore = okNow();
@@ -388,7 +417,10 @@ const applySettings = (): void => {
   motionButton.textContent = `Reduce motion: ${settings.reduceMotion ? 'on' : 'off'}${settings.motionChoice === null ? ' (system)' : ''}`;
   motionButton.setAttribute('aria-pressed', String(settings.reduceMotion));
 };
-settings.on(applySettings);
+settings.on(() => {
+  applySettings();
+  wake();
+});
 applySettings();
 symbolsButton.addEventListener('click', () => (settings.symbols = !settings.symbols));
 motionButton.addEventListener('click', () => (settings.reduceMotion = !settings.reduceMotion));
@@ -460,6 +492,7 @@ async function openEditor(level?: LevelData): Promise<void> {
   playView.hidden = true;
   editView.hidden = false;
   editor.open(level);
+  wake();
 }
 
 function play(kind: 'campaign' | 'shared' | 'test' | 'daily' | 'endless', levels: LevelData[], index = 0, hooks: ModeHooks = {}): void {
@@ -513,12 +546,7 @@ if (location.hash) route();
 progress.setLast(game.level.id);
 okBefore = okNow();
 
-const frame = (now: number): void => {
-  if (!playView.hidden) renderer.draw(game, input, layout, now);
-  editor?.draw(now);
-  requestAnimationFrame(frame);
-};
-requestAnimationFrame(frame);
+requestFrame();
 
 // Dev-only handle for automated browser checks; stripped from production builds.
 if (import.meta.env.DEV) {

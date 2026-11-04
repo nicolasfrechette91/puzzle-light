@@ -619,3 +619,22 @@ Process:
   * The solver's state key is one char per cell and per rotate-only piece, kept up to date as pieces are placed.
 * **Measured:** hard p90 went from 1,020 ms to 437 ms with two candidates (499 ms with four). Hard generation, the full level check and hints all get faster. Every generated level and every bundled level's solver output (states, solutions, difficulty) was compared before and after: byte-identical.
 * **Reason:** Policy 3, with nothing given up: same states, same answers.
+
+### D-076 · Draw only while something moves (post-audit, by: user + claude)
+* **Question:** The canvas redrew every frame forever, and the bloom scaled the whole viewport twice per frame. The owner asked to limit the bloom to the board and stop redrawing when nothing animates. But several effects move continuously by design: the beam shimmer, the pulse of a satisfied target, the black hole's swirl, the portals' flowing ring, sparks from lit targets, and the cursor and hint pulses. Taken literally, the page would never be idle.
+* **Options:** count ambient motion as animation (never idle); drop it; let it run while the player is active and settle when they stop.
+* **Choice:** settle.
+  * **Ambient motion** runs on its own clock. 8 s after the last input or game change, that clock eases to a stop over 1.5 s, sparks stop spawning, and the board holds still.
+  * **Transient motion** always plays out: fades, turning pieces, rings, the world sweep, a long press, a drag.
+  * **The loop:** `draw()` reports whether anything still moves, and the loop asks for frames only while it does. Any pointer, key or wheel input, game event, resize or settings change wakes it.
+  * **Bloom:** the glow layer covers the board plus a 0.6-cell margin instead of the viewport. Screenshots before and after match (0.04% of pixels differ, all from random sparks).
+* **Measured** (headless, software rendering, 1280×800):
+
+  | board | frame before | frame after | idle frames/s before | idle frames/s after |
+  |---|---|---|---|---|
+  | 1-1, 1× | 13.2 ms | 5.8 ms | 61 | 0 |
+  | 1-1, 2× | 52.1 ms | 21.5 ms | 19 | 0 |
+  | 24×24 stress, 1× | 51.8 ms | 44.4 ms | 20 | 0 |
+  | 24×24 stress, 2× | 115.7 ms | 93.2 ms | 9 | 0 |
+
+* **Reason:** Battery and heat on phones, with the calm feel kept while someone is playing. A board that stops shimmering while the player thinks is, if anything, calmer. The 8 s delay is one constant (`SETTLE_AFTER_MS`) if it should change.
