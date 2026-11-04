@@ -7,8 +7,8 @@ unattended runs). Every milestone ends with a commit and a push.
 |---|-----------|--------|
 | 1 | Core engine: grid, 8-dir tracing, emitters/targets/walls/mirrors, rotate, drag & drop, win, undo/redo/reset, JSON levels | **done** |
 | 2 | Optics: additive mixing, prisms, splitters, filters, glass, black holes, portals | **done** |
-| 3 | Solver + CI level validation | next |
-| 4 | Content: 40+ levels, 5 worlds, par, solver hints | |
+| 3 | Solver + CI level validation | **done** |
+| 4 | Content: 40+ levels, 5 worlds, par, solver hints | next |
 | 5 | Level editor, test-play, solver check, share via URL hash | |
 | 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | |
 | 7 | GitHub Pages deploy, README with GIF/screenshots | |
@@ -40,43 +40,35 @@ unattended runs). Every milestone ends with a commit and a push.
   pairing, prism recombination into magenta, and the fuzz property extended to
   every piece.
 
-## Decision log
+## Decisions
 
-Confirmed with the user at the M1 review:
+All design decisions, with the policy used to make them, live in
+[DECISIONS.md](DECISIONS.md).
 
-1. **Mirrors have 8 orientations (22.5° steps).** One rule, `out = (rot − in) mod 8`.
-   **World 1 levels use only 90° bends; 45° bends arrive in world 2.**
-2. **Targets absorb.** A beam feeds one target; splitters feed several.
-3. **Corners pinch** (changed at review): a diagonal beam can't squeeze between
-   two walls touching at a corner.
-4. **Undo coalesces** consecutive rotations of the same piece.
-5. M2 pieces approved as proposed. Filter = bitwise AND (white through red → red).
-   Black holes may be tray pieces.
+## M3: delivered
 
-Also settled:
-
-6. **Win is continuous**: there's no fire button.
-7. **Pre-placed free pieces get an empty tray slot** so the tray never reflows.
-8. **Prism has no rotation** (deviation from the M2 proposal, raised at the M2
-   review): its fan follows the incoming beam, so rotation would be a no-op.
-9. Working title "Puzzle Light"; levels freely navigable until M6 adds progress.
-
-## M3 plan (to confirm)
-
-* Solver over placements and rotations, pruned to cells light can reach, that
-  counts solutions modulo irrelevant pieces (a piece counts only if removing or
-  turning it changes the beams).
-* `npm run levels` CLI: validates every level, reports solution count and
-  minimum pieces, fails on unsolvable levels or a par below the minimum.
-* Lint: world-1 levels' solutions contain no diagonal beams.
-* GitHub Actions CI running tests, build and the level check.
+* **Prism flip** (D-008, D-019): `P0`/`P1`. The wedge points along the incoming
+  beam and its edges show where red and blue go.
+* **`"bends": 90`** (D-009, D-012): 4 positions for 8-position pieces; the
+  rotate ring shows one dash per position (D-020).
+* **`src/core/solver.ts`**: exhaustive, beam-guided search. It reports the
+  solution count, the best solutions, the minimum pieces, the states explored
+  and a difficulty score (D-014, D-015). It takes node, time and early-stop
+  budgets; the clock is injected (D-016).
+* **`npm run levels`**: solves every level with a per-level time limit
+  (default 10 s). It fails on unsolvable, timed-out, impossible-par or
+  already-solved levels, and warns on multiple solutions or a generous par
+  (D-017, D-018).
+* **CI** (`.github/workflows/ci.yml`): tests, typecheck + build, level check.
+* **Tests:** 110, including the solver checked against brute force on 150
+  random levels (D-021).
 
 ## Handoff notes
 
 * Run `npm test` and `npm run build` before committing.
 * In dev builds, `window.__pl` exposes `{ game, input, layout }` for browser
   automation (stripped from production).
-* Levels must stay unique-solution; until the M3 solver lands, add the known
-  solution to `SOLUTIONS` in `tests/levels.test.ts`.
+* Every level must pass `npm run levels` (solvable, ideally unique). Sample
+  levels also keep a designed solution in `tests/solutions.ts`.
 * The tutorial levels use 45° bends early. That's fine for samples, but M4's
   world 1 must not.

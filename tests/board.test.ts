@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseLevel } from '../src/core/level';
 import { board } from './helpers';
 
 describe('Board', () => {
@@ -48,6 +49,30 @@ describe('Board', () => {
     expect(b.rotate(i, -3)).toBe(true);
     expect(b.at(3, 0)!.rot).toBe(6);
     expect(b.rotate(b.idx(0, 0), 1)).toBe(false); // fixed emitter
+  });
+
+  it('turns 8-position pieces two steps at a time with bends: 90', () => {
+    const b = parseLevel({ id: 'x', name: 'X', grid: ['Er0~ M2~ . Tr'], inv: { M: 1 }, bends: 90 });
+    b.rotate(1, 1);
+    expect(b.at(1, 0)!.rot).toBe(4);
+    b.rotate(1, -1);
+    b.rotate(1, -1);
+    expect(b.at(1, 0)!.rot).toBe(0);
+    b.rotate(0, 1);
+    expect(b.at(0, 0)!.rot).toBe(2); // emitters stay orthogonal
+    expect(b.rotations(b.at(1, 0)!)).toEqual([0, 2, 4, 6]);
+    expect(b.place(0, 2, 1)).toBe(false); // odd orientation refused
+    expect(b.clone().bends).toBe(90);
+    expect(b.key()).toContain('/90');
+  });
+
+  it('flips a prism between its two states', () => {
+    const b = board(['P~ .']);
+    expect(b.rotations(b.at(0, 0)!)).toEqual([0, 1]);
+    b.rotate(0, 1);
+    expect(b.at(0, 0)!.rot).toBe(1);
+    b.rotate(0, 1);
+    expect(b.at(0, 0)!.rot).toBe(0);
   });
 
   it('clones deeply and keys canonically', () => {

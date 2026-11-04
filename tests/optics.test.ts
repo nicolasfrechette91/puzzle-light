@@ -77,6 +77,11 @@ describe('prism', () => {
     expect(got(['.   .  Tr', 'Eb0 P  Tg', '.   .  Tb'])).toEqual([0, 0, BLUE]);
   });
 
+  it('swaps red and blue when flipped', () => {
+    expect(got(['.   .  Tr', 'Ew0 P1 Tg', '.   .  Tb'])).toEqual([BLUE, GREEN, RED]);
+    expect(trace(board(['.   .  Tb', 'Ew0 P1 Tg', '.   .  Tr'])).solved).toBe(true);
+  });
+
   it('turns relative to the incoming direction', () => {
     // Travelling south, "left" is east: red leaves south-east.
     const t = trace(board(['.  Ew2 .', '.  P   .', 'Tb Tg  Tr']));

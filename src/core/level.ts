@@ -1,4 +1,4 @@
-import { Board, type InvSlot } from './board';
+import { Board, type Bends, type InvSlot } from './board';
 import { KINDS } from './piece';
 import { formatToken, parseToken, slotKey } from './token';
 
@@ -14,6 +14,8 @@ export interface LevelData {
   par?: number;
   /** Short line shown with the level (tutorial text). */
   note?: string;
+  /** Finest bend allowed: 90 keeps every beam orthogonal (world 1). Default 45. */
+  bends?: Bends;
 }
 
 export const MAX_SIZE = 24;
@@ -60,6 +62,16 @@ export function parseInventory(inv: Record<string, number> | undefined): InvSlot
 export function parseLevel(data: LevelData): Board {
   const grid = parseGrid(data.grid);
   const inv = parseInventory(data.inv);
+  const bends = data.bends ?? 45;
+  if (bends !== 45 && bends !== 90) throw new LevelError(`bends must be 45 or 90, got ${String(data.bends)}`);
+  if (bends === 90) {
+    const pieces = [...grid.cells.map((p, i) => [p, `cell (${i % grid.w},${(i / grid.w) | 0})`] as const), ...inv.map((s) => [s.proto, 'inventory'] as const)];
+    for (const [p, where] of pieces) {
+      if (!p) continue;
+      if (p.kind === 'prism') throw new LevelError(`${where}: prisms bend light 45°, not allowed with bends: 90`);
+      if (KINDS[p.kind].rotSteps === 8 && p.rot % 2) throw new LevelError(`${where}: odd orientation not allowed with bends: 90`);
+    }
+  }
 
   // Portals come in pairs: each pair id must appear exactly twice across grid and tray.
   const portals = new Map<number, number>();
@@ -75,7 +87,17 @@ export function parseLevel(data: LevelData): Board {
     const key = slotKey(p);
     if (!inv.some((s) => slotKey(s.proto) === key)) inv.push({ proto: { ...p, rot: 0 }, count: 0 });
   }
-  return new Board(grid.w, grid.h, grid.cells, inv);
+  // Walls, emitters and targets are puzzle structure: the solver relies on movable
+  // pieces mattering only where light reaches them (see DECISIONS D-013).
+  grid.cells.forEach((p, i) => {
+    if (p?.lock === 'free' && (p.kind === 'wall' || p.kind === 'emitter' || p.kind === 'target'))
+      throw new LevelError(`cell (${i % grid.w},${(i / grid.w) | 0}): a ${p.kind} cannot be movable`);
+  });
+  for (const s of inv) {
+    if (s.proto.kind === 'wall' || s.proto.kind === 'emitter' || s.proto.kind === 'target')
+      throw new LevelError(`inventory: a ${s.proto.kind} cannot be a tray piece`);
+  }
+  return new Board(grid.w, grid.h, grid.cells, inv, bends);
 }
 
 /** Render a board's grid as aligned token rows. */
@@ -105,5 +127,6 @@ export function toLevelData(b: Board, meta: Omit<LevelData, 'grid' | 'inv'>): Le
   }
   const out: LevelData = { ...meta, grid: formatGrid(b) };
   if (Object.keys(inv).length) out.inv = inv;
+  if (b.bends === 90) out.bends = 90;
   return out;
 }

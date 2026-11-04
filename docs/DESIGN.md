@@ -30,7 +30,7 @@ src/
     level.ts            compact JSON level format ⇄ Board
     trace.ts            beam tracing → per-edge colour masks, target status, solved
     history.ts          undo/redo stack with coalescing
-    (M3) solver.ts      backtracking solver reusing board.ts + trace.ts
+    solver.ts           beam-guided exhaustive solver (counts, min pieces, difficulty)
   game/                 browser-only
     game.ts             controller: level, board, history, trace, win state
     layout.ts           responsive geometry + hit testing
@@ -41,8 +41,8 @@ src/
     index.ts            level packs (JSON imported at build time)
     tutorial.json       M1 sample levels  ┐ replaced by five worlds in M4
     optics.json         M2 sample levels  ┘
-tests/                  vitest, runs the core in Node
-scripts/                (M3) CLI: solve/validate all levels for CI
+tests/                  vitest, runs the core in Node (solver checked against brute force)
+scripts/check-levels.ts npm run levels: solve and validate every level (CI)
 docs/                   this file + ROADMAP.md
 ```
 
@@ -99,14 +99,19 @@ it (the formula gives `out = in`), a beam perpendicular to it is sent back.
 | target | `T` | – | absorbed; counts towards its colour |
 | mirror | `M` | 8 × 22.5° | leaves `(rot − d) mod 8` |
 | splitter | `S` | 8 × 22.5° | leaves `d` **and** `(rot − d) mod 8` |
-| prism | `P` | – | red leaves `d − 1` (45° left), green `d`, blue `d + 1` (45° right) |
+| prism | `P` | 2 states | `P0`: red leaves `d − 1` (45° left), blue `d + 1` (45° right); `P1` swaps them; green `d` |
 | filter | `F` | – | `beam AND colour` continues, the rest is absorbed |
 | glass | `G` | – | continues; nothing can be placed on it |
 | black hole | `X` | – | absorbed (useful as a tray piece to stop a beam) |
 | portal | `O` | – | leaves the paired portal travelling `d`; an unpaired portal absorbs |
 
-The prism has no orientation of its own: its fan is measured from the incoming
-beam, so rotating it could not change anything.
+The prism's fan is measured from the incoming beam, so instead of rotating it
+flips (`P0` ⇄ `P1`). It is drawn as a wedge pointing along the incoming light,
+with a red edge on the side red leaves by.
+
+A level may set `"bends": 90`: then mirrors, splitters and emitters are limited
+to their 4 even orientations (each tap turns 90°) and prisms are not allowed, so
+every beam stays orthogonal. Walls, emitters and targets are never movable.
 
 ## Colour
 
@@ -145,7 +150,7 @@ aligned). Token grammar: `Kind [colour] [digit] [lock]`
 | `M2~`  | … rotatable in place                         |
 | `M2*`  | … free (movable)                             |
 | `S3~`  | splitter at rot 3, rotatable                 |
-| `P*`   | prism, movable                               |
+| `P1*`  | prism, flipped, movable (`P` = `P0`)         |
 | `Fy`   | yellow filter                                |
 | `G`    | glass                                        |
 | `X*`   | black hole, movable                          |
@@ -177,6 +182,27 @@ hit[cell]          : colour mask absorbed at `cell`
 
 Rendering derives line segments from `out` afterwards, so the solver can skip
 that step.
+
+## Solver (`src/core/solver.ts`)
+
+Exhaustive search over tray placements, their orientations and rotate-only
+orientations, guided by the light:
+
+1. Movable pieces go back to the tray; rotate-only pieces start *undecided*
+   and absorb light, so the trace shows when light reaches them.
+2. At each state, first decide any undecided piece that light reaches (and
+   rotatable emitters, up front).
+3. Otherwise try each tray piece on each cell light enters, keeping only
+   placements that change that light. A lit portal whose twin is in the tray
+   also tries the twin on every dark cell.
+4. Memoise states, so placement order doesn't multiply the work.
+
+If a solution exists, one of its pieces always sits on a lit cell of any
+partial board that isn't already equivalent, so this is complete. A test checks
+it against brute force. Solutions are compared by their *active* pieces
+(D-014). The result gives the count, the best solutions (fewest pieces, then
+fewest decisions), the minimum pieces, the states explored and
+`difficulty = log2(states) + decisions`.
 
 ## Interaction
 

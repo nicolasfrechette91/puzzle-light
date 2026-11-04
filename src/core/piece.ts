@@ -65,8 +65,8 @@ export const KINDS: Readonly<Record<Kind, KindInfo>> = {
   target: info('T', 'target', { colored: true }),
   mirror: info('M', 'mirror', { rotSteps: 8, rotDeg: 22.5 }),
   splitter: info('S', 'splitter', { rotSteps: 8, rotDeg: 22.5 }),
-  // The prism's fan follows the incoming beam, so it has no orientation of its own.
-  prism: info('P', 'prism'),
+  // The prism's fan follows the incoming beam; its two states choose which side red and blue take.
+  prism: info('P', 'prism', { rotSteps: 2 }),
   filter: info('F', 'filter', { colored: true }),
   glass: info('G', 'glass'),
   hole: info('X', 'black hole'),

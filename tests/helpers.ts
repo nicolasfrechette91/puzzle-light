@@ -7,3 +7,15 @@ export function board(grid: string[], inv?: Record<string, number>): Board {
   if (inv) data.inv = inv;
   return parseLevel(data);
 }
+
+/** Small deterministic PRNG (mulberry32): `rand(n)` returns an integer in [0, n). */
+export function rng(seed: number): (n: number) => number {
+  let a = seed >>> 0;
+  return (n: number) => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return (((t ^ (t >>> 14)) >>> 0) % n);
+  };
+}

@@ -50,6 +50,29 @@ export function portalPartners(b: Board): Int32Array {
   return partner;
 }
 
+export interface Arrival {
+  /** Direction the light is travelling as it enters. */
+  dir: number;
+  mask: Color;
+}
+
+/** Light entering `cell` from its neighbours (teleported light is not included). */
+export function arrivals(b: Board, t: Trace, cell: number): Arrival[] {
+  const { w, h } = b;
+  const x = cell % w;
+  const y = (cell / w) | 0;
+  const list: Arrival[] = [];
+  for (let d = 0; d < 8; d++) {
+    const px = x - DX[d]!;
+    const py = y - DY[d]!;
+    if (px < 0 || py < 0 || px >= w || py >= h) continue;
+    const from = py * w + px;
+    const mask = t.out[from * 8 + d]!;
+    if (mask && nextCell(b, from, d) === cell) list.push({ dir: d, mask });
+  }
+  return list;
+}
+
 export interface TargetState {
   cell: number;
   want: Color;
@@ -128,12 +151,14 @@ export function trace(b: Board): Trace {
         emit(j, dir, mask);
         emit(j, reflect(p.rot, dir), mask);
         break;
-      case 'prism':
-        // Red bends 45° to the left of travel, green goes straight, blue bends right.
-        if (mask & RED) emit(j, (dir + 7) & 7, RED);
+      case 'prism': {
+        // State 0: red bends 45° left of travel, blue 45° right; state 1 swaps them. Green goes straight.
+        const redTurn = p.rot ? 1 : 7;
+        if (mask & RED) emit(j, (dir + redTurn) & 7, RED);
         if (mask & GREEN) emit(j, dir, GREEN);
-        if (mask & BLUE) emit(j, (dir + 1) & 7, BLUE);
+        if (mask & BLUE) emit(j, (dir + 8 - redTurn) & 7, BLUE);
         break;
+      }
       case 'filter': {
         const pass = mask & p.color;
         if (pass) emit(j, dir, pass);

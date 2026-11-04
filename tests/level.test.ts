@@ -30,10 +30,11 @@ describe('tokens', () => {
   });
 
   it('formats canonically and round-trips', () => {
-    for (const tok of ['.', '#', 'Er0', 'Eb7~', 'Tw', 'M0', 'M3~', 'M6*', 'S5~', 'P', 'P*', 'Fm', 'G', 'X*', 'O3', 'O1*']) {
+    for (const tok of ['.', '#', 'Er0', 'Eb7~', 'Tw', 'M0', 'M3~', 'M6*', 'S5~', 'P0', 'P1*', 'Fm', 'G', 'X*', 'O3', 'O1*']) {
       expect(formatToken(parseToken(tok))).toBe(tok);
     }
     expect(formatToken(parseToken('M'))).toBe('M0');
+    expect(formatToken(parseToken('P'))).toBe('P0'); // saved M2 levels keep working
   });
 });
 
@@ -92,6 +93,24 @@ describe('levels', () => {
     expect(() => board(['O1 O1 O1'])).toThrow(/pair 1 has 3 portals/);
     expect(() => board(['O1 . O2'], { O1: 1 })).toThrow(/pair 2/);
     expect(board(['O1 . O2 O2'], { O1: 1 }).inv[0]).toMatchObject({ proto: { kind: 'portal', link: 1 }, count: 1 });
+  });
+
+  it('validates bends: 90 levels', () => {
+    const ok = parseLevel({ id: 'x', name: 'X', grid: ['Er0 M2~ Tr'], inv: { M: 1, S2: 1 }, bends: 90 });
+    expect(ok.bends).toBe(90);
+    expect(() => parseLevel({ id: 'x', name: 'X', grid: ['Er0 M3~ Tr'], bends: 90 })).toThrow(/odd orientation/);
+    expect(() => parseLevel({ id: 'x', name: 'X', grid: ['Er1 . Tr'], bends: 90 })).toThrow(/odd orientation/);
+    expect(() => parseLevel({ id: 'x', name: 'X', grid: ['Er0 . Tr'], inv: { M1: 1 }, bends: 90 })).toThrow(/inventory/);
+    expect(() => parseLevel({ id: 'x', name: 'X', grid: ['Ew0 P Tr'], bends: 90 })).toThrow(/prisms/);
+    expect(() => parseLevel({ id: 'x', name: 'X', grid: ['Er0 . Tr'], bends: 60 as 90 })).toThrow(/bends/);
+    expect(toLevelData(ok, { id: 'x', name: 'X' }).bends).toBe(90);
+  });
+
+  it('keeps walls, emitters and targets out of the player\'s hands', () => {
+    expect(() => board(['Er0 #* Tr'])).toThrow(/wall cannot be movable/);
+    expect(() => board(['Er0* . Tr'])).toThrow(/emitter cannot be movable/);
+    expect(() => board(['Er0 . Tr'], { Tg: 1 })).toThrow(/tray piece/);
+    expect(board(['Er0~ . Tr']).at(0, 0)?.lock).toBe('rotate'); // rotatable emitters are fine
   });
 
   it('aligns columns', () => {

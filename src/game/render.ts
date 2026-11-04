@@ -1,7 +1,7 @@
 import type { Board } from '../core/board';
 import { rgba, type Color } from '../core/color';
-import { canMove, canRotate, rotDegrees, type Piece } from '../core/piece';
-import { segments, type Segment, type Trace } from '../core/trace';
+import { canMove, canRotate, KINDS, rotDegrees, type Piece } from '../core/piece';
+import { arrivals, segments, type Segment, type Trace } from '../core/trace';
 import type { Game } from './game';
 import { LONG_PRESS_MS, type Input } from './input';
 import type { Layout } from './layout';
@@ -36,6 +36,10 @@ interface PieceStyle {
   alpha?: number;
   /** Drawn as a tray icon: no lock base. */
   tray?: boolean;
+  /** Orientations this piece can take on this board (dash count of the rotate ring). */
+  positions?: number;
+  /** Direction light travels into the piece (prisms point along it). */
+  inDir?: number;
 }
 
 export class Renderer {
@@ -220,13 +224,20 @@ export class Renderer {
       const cx = L.bx + ((i % b.w) + 0.5) * s;
       const cy = L.by + (Math.floor(i / b.w) + 0.5) * s;
       const tgt = got.get(i);
-      drawPiece(this.ctx, p, cx, cy, s, {
+      const style: PieceStyle = {
         time,
         got: tgt?.got ?? 0,
         ok: tgt?.ok ?? false,
         lit: t.lit[i]!,
         hit: t.hit[i]!,
-      });
+        positions: b.rotations(p).length,
+      };
+      if (p.kind === 'prism' && t.lit[i]) {
+        // Point the wedge along the strongest incoming beam.
+        const arr = arrivals(b, t, i).sort((a, c) => c.mask - a.mask);
+        if (arr[0]) style.inDir = arr[0].dir;
+      }
+      drawPiece(this.ctx, p, cx, cy, s, style);
     }
   }
 
@@ -321,7 +332,7 @@ export class Renderer {
 function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, style: PieceStyle): void {
   ctx.save();
   ctx.globalAlpha = style.alpha ?? 1;
-  if (!style.tray) drawBase(ctx, p, cx, cy, s);
+  if (!style.tray) drawBase(ctx, p, cx, cy, s, style.positions ?? KINDS[p.kind].rotSteps);
   switch (p.kind) {
     case 'emitter':
       drawEmitter(ctx, p, cx, cy, s);
@@ -336,7 +347,7 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: numb
       drawSplitter(ctx, p, cx, cy, s, style.lit ?? 0);
       break;
     case 'prism':
-      drawPrism(ctx, cx, cy, s, style.lit ?? 0);
+      drawPrism(ctx, p, cx, cy, s, style.lit ?? 0, style.inDir ?? 0);
       break;
     case 'filter':
       drawFilter(ctx, p, cx, cy, s, style.lit ?? 0);
@@ -365,8 +376,11 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: numb
   ctx.restore();
 }
 
-/** What the player may do, shown under the piece: plate = movable, dashed ring = rotatable. */
-function drawBase(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number): void {
+/**
+ * What the player may do, shown under the piece: plate = movable, dashed ring =
+ * rotatable with one dash per available orientation.
+ */
+function drawBase(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, positions: number): void {
   if (p.lock === 'free') {
     ctx.fillStyle = '#192133';
     ctx.strokeStyle = 'rgba(170,195,255,0.18)';
@@ -376,13 +390,17 @@ function drawBase(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: numbe
     ctx.fill();
     ctx.stroke();
   } else if (canRotate(p)) {
-    ctx.strokeStyle = 'rgba(170,195,255,0.28)';
+    const r = s * 0.41;
+    const arc = TAU / positions;
+    ctx.strokeStyle = 'rgba(170,195,255,0.3)';
     ctx.lineWidth = Math.max(1, s * 0.025);
-    ctx.setLineDash([s * 0.12, s * 0.07]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, s * 0.41, 0, TAU);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    for (let k = 0; k < positions; k++) {
+      const a = -Math.PI / 2 + k * arc + arc * 0.18;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a, a + arc * 0.64);
+      ctx.stroke();
+    }
   }
 }
 
@@ -570,35 +588,46 @@ function drawSplitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: n
   if (p.lock === 'fixed') drawPin(ctx, cx, cy, s);
 }
 
-function drawPrism(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, lit: Color): void {
+/**
+ * A wedge pointing along the incoming light. The edge on the side red leaves
+ * by is red, the other blue, so flipping the prism visibly swaps them.
+ */
+function drawPrism(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color, inDir: number): void {
   if (lit) glow(ctx, cx, cy, s * 0.5, lit, 0.32);
   const r = s * 0.34;
-  const pts = [-90, 30, 150].map((a) => [cx + Math.cos(a * DEG) * r, cy + Math.sin(a * DEG) * r + s * 0.04] as const);
-  const path = new Path2D();
-  path.moveTo(pts[0]![0], pts[0]![1]);
-  path.lineTo(pts[1]![0], pts[1]![1]);
-  path.lineTo(pts[2]![0], pts[2]![1]);
-  path.closePath();
-  const body = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
-  body.addColorStop(0, 'rgba(70,85,125,0.95)');
-  body.addColorStop(1, 'rgba(26,32,52,0.95)');
-  ctx.fillStyle = body;
-  ctx.fill(path);
-  // Spectral rim: red on the left, blue on the right, matching how it bends light.
-  const rim = ctx.createLinearGradient(cx - r, cy, cx + r, cy);
-  rim.addColorStop(0, rgba(1, 0.95));
-  rim.addColorStop(0.5, rgba(2, 0.95));
-  rim.addColorStop(1, rgba(4, 0.95));
-  ctx.strokeStyle = rim;
-  ctx.lineWidth = Math.max(1.5, s * 0.035);
+  const a = inDir * 45 * DEG;
+  const at = (deg: number) => [cx + Math.cos(a + deg * DEG) * r, cy + Math.sin(a + deg * DEG) * r] as const;
+  const apex = at(0);
+  const backLeft = at(-125); // counter-clockwise of travel = the traveller's left
+  const backRight = at(125);
+  const body = new Path2D();
+  body.moveTo(apex[0], apex[1]);
+  body.lineTo(backRight[0], backRight[1]);
+  body.lineTo(backLeft[0], backLeft[1]);
+  body.closePath();
+  const fill = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  fill.addColorStop(0, 'rgba(78,92,135,0.95)');
+  fill.addColorStop(1, 'rgba(28,34,56,0.95)');
+  ctx.fillStyle = fill;
+  ctx.fill(body);
   ctx.lineJoin = 'round';
-  ctx.stroke(path);
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = Math.max(1, s * 0.015);
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.5, s * 0.045);
+  const edge = (from: readonly [number, number], to: readonly [number, number], style: string) => {
+    ctx.strokeStyle = style;
+    ctx.beginPath();
+    ctx.moveTo(from[0], from[1]);
+    ctx.lineTo(to[0], to[1]);
+    ctx.stroke();
+  };
+  const leftColour = p.rot ? 4 : 1;
+  edge(backLeft, backRight, 'rgba(235,240,255,0.55)'); // the face light enters by
+  edge(apex, backLeft, rgba(leftColour, 0.95));
+  edge(apex, backRight, rgba(5 - leftColour, 0.95));
+  ctx.fillStyle = rgba(2, 0.9);
   ctx.beginPath();
-  ctx.moveTo(pts[0]![0], pts[0]![1] + s * 0.08);
-  ctx.lineTo(cx - r * 0.35, cy + r * 0.2);
-  ctx.stroke();
+  ctx.arc(apex[0], apex[1], Math.max(1.5, s * 0.03), 0, TAU);
+  ctx.fill();
 }
 
 function drawFilter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color): void {

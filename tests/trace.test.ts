@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { E, S, SE } from '../src/core/dir';
 import { parseGrid } from '../src/core/level';
 import { segments, trace } from '../src/core/trace';
-import { board } from './helpers';
+import { board, rng } from './helpers';
 
 const lit = (t: ReturnType<typeof trace>, cell: number, dir: number) => t.out[cell * 8 + dir]!;
 
@@ -80,8 +80,7 @@ describe('trace', () => {
   it('equals the union of each emitter traced alone, within the state bound', () => {
     // Optics act on each beam independently, so the fixpoint must be the OR of
     // single-emitter traces regardless of which emitter is processed first.
-    let seed = 12345;
-    const rand = (n: number) => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) % n);
+    const rand = rng(12345);
     const toks = () => {
       const r = rand(30);
       if (r < 11) return '.';

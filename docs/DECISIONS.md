@@ -1,0 +1,166 @@
+# Decisions
+
+## Policy
+
+Routine design and implementation choices are made without waiting for review,
+using these rules in order:
+
+1. **Player clarity beats mechanical depth.** If a rule can't be seen on screen,
+   prefer a version that can.
+2. **Every level must be solver-verified,** ideally with a unique solution.
+3. **Prefer the simpler option** the solver can search faster.
+4. **Keep the M1 data model and the single JSON format;** don't break saved levels.
+5. **Respect decisions already made** (the log below).
+
+Process:
+
+* Each choice gets an entry below: question, options, choice, one-line reason.
+* Genuinely close calls go to a reviewer subagent with the question, the options
+  and this policy. Its answer is taken unless it conflicts with the policy, and
+  it is logged with `by: reviewer`.
+* The user is asked before: changing one of the user's decisions; anything that
+  changes the game's feel or scope (new mechanics, removing features); deleting
+  or rewriting history; anything irreversible.
+* At the end of each milestone: push, then post a summary with the new entries.
+
+`by:` says who decided: `user`, `claude` (applying the policy) or `reviewer`.
+
+## Log
+
+### D-001 · Mirror orientations (M1, by: user)
+* **Question:** How many orientations does a mirror have?
+* **Options:** 4 (45° steps, 90° bends only); 8 (22.5° steps, 45° bends too).
+* **Choice:** 8. World 1 levels use only 90° bends; 45° bends arrive in world 2.
+* **Reason:** One rule, `out = (rot − in) mod 8`, covers every bend, and the worlds ramp up to it.
+
+### D-002 · Targets absorb (M1, by: user)
+* **Question:** Does light stop at a target or pass through it?
+* **Options:** Absorb; pass through.
+* **Choice:** Absorb.
+* **Reason:** One beam feeds one target; splitters are how one source feeds several.
+
+### D-003 · Corners pinch diagonal light (M2, by: user)
+* **Question:** Can a diagonal beam slip between two walls that touch at a corner?
+* **Options:** Slip through; blocked.
+* **Choice:** Blocked. Only walls pinch; one wall, or a wall next to any other piece, lets light through.
+* **Reason:** It matches what the player sees: the walls look closed.
+
+### D-004 · Undo groups rotations (M1, by: user)
+* **Question:** Is each rotation tap its own undo step?
+* **Options:** One step per tap; group consecutive rotations of the same piece.
+* **Choice:** Group them.
+* **Reason:** Rotating through 8 orientations shouldn't take 8 undos to reverse.
+
+### D-005 · Optics pieces (M2, by: user)
+* **Question:** What do the M2 pieces do?
+* **Choice:**
+  * Splitter: reflects and transmits.
+  * Prism: splits R/G/B at −45°/0°/+45° of travel.
+  * Filter: bitwise AND, so white through red comes out red.
+  * Glass: passes light, but nothing can be placed on it.
+  * Black hole: absorbs light, and can be a tray piece.
+  * Portals: paired, and light keeps its direction.
+* **Reason:** Approved as proposed.
+
+### D-006 · Win detection is continuous (M1, by: claude)
+* **Question:** Does the player trigger a win check?
+* **Options:** "Fire" button; check after every change.
+* **Choice:** Check after every change.
+* **Reason:** Calm, immediate feedback; no extra UI.
+
+### D-007 · Empty tray slots for pre-placed free pieces (M1, by: claude)
+* **Question:** What happens to the tray when a pre-placed movable piece is picked up?
+* **Options:** Create a slot on first pick-up; pre-create an empty slot at load.
+* **Choice:** Pre-create.
+* **Reason:** The tray never reflows mid-level.
+
+### D-008 · Prism flip (M3, by: user)
+* **Question:** Should the prism rotate, given its fan follows the incoming beam?
+* **Options:** No rotation; a two-state flip.
+* **Choice:** Two-state flip that swaps which side red and blue go to. Token `P0` / `P1`; bare `P` stays `P0`.
+* **Reason:** Gives the prism a meaningful decision.
+
+### D-009 · Per-level rotation restriction (M3, by: user)
+* **Question:** How do world-1 levels guarantee 90° bends?
+* **Options:** (a) restrict rotation per level; (b) design plus a lint only.
+* **Choice:** (a): world-1 mirrors have 4 positions.
+* **Reason:** Players never see a 45° bend before world 2.
+
+### D-010 · Solver extras (M3, by: user)
+* **Question:** What beyond the approved M3 plan?
+* **Choice:** A difficulty score for ordering levels within a world, and a per-level time limit in the CI level check.
+* **Reason:** Requested at the M2 review.
+
+### D-011 · Free level navigation until progress exists (M1, by: claude)
+* **Question:** Are levels locked until earlier ones are solved?
+* **Options:** Lock; free navigation.
+* **Choice:** Free navigation until M6 adds progress.
+* **Reason:** Simplest while building; M6 revisits it.
+
+### D-012 · `bends` level field (M3, by: claude)
+* **Question:** How is the per-level rotation restriction (D-009) expressed?
+* **Options:** A per-piece stride in tokens; a level-wide `"bends": 90`.
+* **Choice:** Level-wide `"bends": 90` (default 45). Every 8-position piece (mirror, splitter, emitter) is limited to its 4 even orientations and turns 90° per tap. Odd orientations and prisms are rejected at parse time.
+* **Reason:** One switch per level and no token changes; old levels are unaffected (policy 4); fewer positions to search (policy 3).
+
+### D-013 · Walls, emitters and targets are never movable (M3, by: claude)
+* **Question:** Should the solver support movable walls, emitters and targets? The token grammar allowed them, but no level used them.
+* **Options:** Support them with extra search rules; reject them at parse time.
+* **Choice:** Reject them (`#*`, `Er0*`, tray targets…). Rotatable emitters (`~`) stay allowed.
+* **Reason:** A movable wall can pinch a corner without being lit, and a movable emitter matters wherever it sits. Both break the "only lit pieces matter" pruning (policy 3), and no saved level uses them (policy 4).
+
+### D-014 · What makes two solutions different (M3, by: claude)
+* **Question:** When are two solved boards the same solution?
+* **Options:** Same piece positions; same light pattern; same *active* pieces.
+* **Choice:** The same set of active player-controlled pieces: pieces that change the light reaching them.
+  * Mirror or splitter: active when it deflects.
+  * Prism: active when red or blue passes through.
+  * Filter: active when it removes some colour.
+  * Holes and portals: active when lit.
+* **Reason:** A parked or idle piece shouldn't create a "new" solution, and the test is local and cheap.
+
+### D-015 · Difficulty score (M3, by: claude)
+* **Question:** How should the requested difficulty score (D-010) be defined?
+* **Options:** Raw states explored; log2(states); log2(states) + decisions in the best solution.
+* **Choice:** `log2(states explored) + decisions in the best solution`, to one decimal.
+* **Reason:** It grows with both search breadth and solution length, and stays readable (a 2-piece level scores about 6–14).
+
+### D-016 · Solver clock is injected (M3, by: claude)
+* **Question:** How does a time limit fit a core that must stay pure?
+* **Options:** Read the clock inside the solver; caller passes `now` and `deadline`.
+* **Choice:** The caller passes them; the solver only counts states otherwise.
+* **Reason:** Keeps `src/core` free of timers (CLAUDE.md), and tests use a fake clock.
+
+### D-017 · Level-check outcomes (M3, by: claude)
+* **Question:** What fails CI, and what only warns?
+* **Choice:**
+  * **Fail:** doesn't parse, already solved at start, no solution, search not finished within the time limit, par below the true minimum.
+  * **Warn:** more than one solution, par above the minimum. `--strict` turns warnings into failures.
+* **Reason:** Every level must be solver-verified, *ideally* unique (policy 2).
+
+### D-018 · CI time limits (M3, by: claude)
+* **Question:** What per-level limit should the level check use?
+* **Choice:** 10 s per level (`--time` overrides) and a 15-minute job timeout as a backstop.
+* **Reason:** The current hardest level solves in about 30 ms, so this leaves plenty of headroom while a runaway level fails fast.
+
+### D-019 · Prism shows its flip (M3, by: claude)
+* **Question:** How does the player see which way a prism sends red and blue (the fan is relative to the beam)?
+* **Options:** A fixed icon; a wedge that points along the incoming beam, with its red edge on the side red leaves by.
+* **Choice:** The wedge. It points east when unlit and in the tray.
+* **Reason:** Player clarity beats mechanical depth (policy 1): the rule is readable straight off the board.
+
+### D-020 · Rotate ring shows positions (M3, by: claude)
+* **Question:** How does a player tell an 8-position mirror from a 4-position one (bends 90) or a 2-state prism?
+* **Choice:** The dashed ring under a rotatable piece has one dash per available orientation.
+* **Reason:** Policy 1, at almost no cost.
+
+### D-021 · Solver correctness is tested against brute force (M3, by: claude)
+* **Question:** How do we trust the pruned search?
+* **Choice:** A test compares the solver with plain enumeration on 150 random 4×4 levels, most solvable by construction. Breaking the solver on purpose (dropping the portal-twin rule; never placing splitters) makes it fail.
+* **Reason:** Every level must be solver-verified (policy 2), so the solver itself needs an oracle.
+
+### D-022 · Known-solution table only for sample levels (M3, by: claude)
+* **Question:** Do new levels also need hand-written solutions in tests?
+* **Options:** Keep `tests/solutions.ts` for every level; only for the 12 samples.
+* **Choice:** Only the samples (as regression checks on the solver). M4 levels are verified by `npm run levels` in CI.
+* **Reason:** One source of truth that scales to 40+ levels (policy 3).
