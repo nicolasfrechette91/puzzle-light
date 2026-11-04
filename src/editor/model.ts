@@ -4,6 +4,7 @@ import { History } from '../core/history';
 import { parseGrid, parseInventory, parseLevel, toLevelData, type LevelData } from '../core/level';
 import { KINDS, type Kind, type Lock, type Piece } from '../core/piece';
 import { slotKey } from '../core/token';
+import { trace } from '../core/trace';
 
 /** What a click on the board paints. */
 export interface Brush {
@@ -138,6 +139,7 @@ export class EditorModel {
     }
     if (!this.board.cells.some((p) => p?.kind === 'emitter')) return 'add an emitter';
     if (!this.board.cells.some((p) => p?.kind === 'target')) return 'add a target';
+    if (trace(parseLevel(this.toLevel())).solved) return 'it starts already solved, so put something in the light’s way';
     return null;
   }
 

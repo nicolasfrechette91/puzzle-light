@@ -13,8 +13,10 @@ describe('EditorModel', () => {
     m.paint(m.board.idx(0, 1), brush('emitter'));
     expect(m.problem()).toMatch(/target/);
     m.paint(m.board.idx(4, 1), brush('target'));
+    expect(m.problem()).toMatch(/already solved/);
+    m.paint(m.board.idx(2, 1), brush('wall'));
     expect(m.problem()).toBeNull();
-    expect(m.toLevel().grid).toEqual(['.   .   .   .   .', 'Er0 .   .   .   Tr', '.   .   .   .   .']);
+    expect(m.toLevel().grid).toEqual(['.   .   .   .   .', 'Er0 .   #   .   Tr', '.   .   .   .   .']);
   });
 
   it('round-trips every bundled level unchanged', () => {
@@ -30,7 +32,7 @@ describe('EditorModel', () => {
     m.paint(3, brush('target'));
     m.paint(1, brush('portal', { link: 2 }));
     expect(m.problem()).toMatch(/portal pair 2 has 1 portal/);
-    m.paint(5, brush('portal', { link: 2 }));
+    m.paint(6, brush('portal', { link: 2 }));
     expect(m.problem()).toBeNull();
   });
 

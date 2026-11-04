@@ -11,7 +11,7 @@ unattended runs). Every milestone ends with a commit and a push.
 | 4 | Content: 40+ levels, 5 worlds, par, solver hints | **done** |
 | 5 | Level editor, test-play, solver check, share via URL hash | **done** |
 | 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | **done** |
-| 7 | GitHub Pages deploy, README with GIF/screenshots | next |
+| 7 | GitHub Pages deploy, README with GIF/screenshots | **done** |
 
 ## M1: delivered
 
@@ -105,6 +105,21 @@ All design decisions, with the policy used to make them, live in
   and the game resumes where you left off (D-041).
 * **Responsive toolbar** (D-042) and keyboard play (D-043).
 * Unlock and resume rules are tested in `tests/progress.test.ts`.
+
+## M7: delivered
+
+* `.github/workflows/deploy.yml`: test, check levels, build, deploy to Pages
+  on push to `main` (D-044). It needs Pages' source set to GitHub Actions. The
+  production build was checked served from a `/puzzle-light/` sub-path (game,
+  editor chunk and solver worker).
+* README with a gameplay GIF and screenshots (D-045). Media were captured with
+  Playwright from the dev server (stills at 2× as WebP; the GIF from a scripted
+  session, assembled with Pillow).
+
+## Open questions for the owner
+
+* Licence (D-046).
+* Merge the development branch into `main` to trigger the first deployment.
 
 ## Handoff notes
 

@@ -300,7 +300,7 @@ Process:
 
 ### D-042 · Phone toolbar (M6, by: claude)
 * **Question:** Eight-plus toolbar buttons don't fit a 390 px phone next to the title.
-* **Choice:** Under 600 px, the editor and sound buttons move into the level-select sheet (they stay in the toolbar during a test or a shared level). Under 420 px, previous/next are hidden; the level select and "Next level" cover navigation. The title truncates instead of overlapping.
+* **Choice:** Under 760 px, the editor and sound buttons move into the level-select sheet (they stay in the toolbar during a test or a shared level). Under 420 px, previous/next are hidden; the level select and "Next level" cover navigation. The title truncates instead of overlapping.
 * **Reason:** Touch targets stay at least 36 px and nothing overlaps.
 
 ### D-043 · Keyboard play (M6, by: claude)
@@ -311,3 +311,24 @@ Process:
   * Number keys 1–9 select a tray slot; Backspace or Delete returns a piece to the tray.
   * Pointer input hides the cursor.
 * **Reason:** Accessibility at small cost; it reuses the same tap logic, so the rules are identical.
+
+### D-044 · Deployment (M7, by: claude)
+* **Question:** How does the site get to GitHub Pages?
+* **Options:** A `gh-pages` branch pushed by a script; the official Pages Actions (`upload-pages-artifact` + `deploy-pages`).
+* **Choice:** The official actions, triggered on push to `main` and by hand. Tests and the level check run before the build, so a broken level never ships. The repository owner has to set Pages' source to "GitHub Actions" once.
+* **Reason:** No extra branch to keep in sync, and nothing deploys from work-in-progress branches.
+
+### D-045 · README media (M7, by: claude)
+* **Question:** Which formats and sizes?
+* **Choice:** Stills captured at 2× and saved as WebP (about 35 KB each; GitHub renders WebP), plus a 640 px gameplay GIF (about 390 KB) of a scripted mouse session on Warm Light, quantised to one shared palette so colours don't flicker.
+* **Reason:** Crisp, light on the repository, and reproducible with Playwright.
+
+### D-046 · No licence chosen (M7, by: claude)
+* **Question:** `package.json` said `"license": "MIT"`, which I had set in M1 without asking.
+* **Choice:** Removed it. Choosing a licence is the owner's call; the README makes no licence claim.
+* **Reason:** Irreversible-ish and outside the brief, so it's left for the user.
+
+### D-047 · The editor rejects levels that start solved (M7, by: claude)
+* **Question:** A level whose beams already light every target passed the editor's check ("unique solution, 0 pieces") but fails `npm run levels`.
+* **Choice:** `problem()` now reports it ("starts already solved"), which blocks test, share and save, matching the level check.
+* **Reason:** One rule in both places (policy 2).
