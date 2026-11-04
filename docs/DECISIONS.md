@@ -332,3 +332,8 @@ Process:
 * **Question:** A level whose beams already light every target passed the editor's check ("unique solution, 0 pieces") but fails `npm run levels`.
 * **Choice:** `problem()` now reports it ("starts already solved"), which blocks test, share and save, matching the level check.
 * **Reason:** One rule in both places (policy 2).
+
+### D-048 · Licence: MIT (by: user)
+* **Question:** Which licence (left open in D-046)?
+* **Choice:** MIT, copyright Nicolas Frechette: a `LICENSE` file, `"license": "MIT"` in `package.json`, and a line in the README.
+* **Reason:** The owner's choice.

@@ -122,3 +122,7 @@ request.
 
 Everything is original: the art is drawn in code, and the sound is synthesised
 in the browser.
+
+## Licence
+
+[MIT](LICENSE) © 2026 Nicolas Frechette

@@ -118,8 +118,8 @@ All design decisions, with the policy used to make them, live in
 
 ## Open questions for the owner
 
-* Licence (D-046).
-* There is no `main` branch yet: the development branch is the only (and default) branch. Create `main` from it, or run the deploy workflow by hand, after enabling Pages with the GitHub Actions source.
+* ~~Licence (D-046)~~: MIT, chosen by the owner (D-048).
+* ~~First deployment~~: Pages uses the GitHub Actions source, and `main` was created from the development branch; every push to `main` deploys to https://nicolasfrechette91.github.io/puzzle-light/.
 
 ## Handoff notes
 
