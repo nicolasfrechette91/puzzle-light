@@ -112,6 +112,10 @@ export class Renderer {
   /** Fade the board in (call when a new level appears). */
   fadeIn(): void {
     this.fadeStart = reducedMotion() ? -1 : -2; // resolved to a timestamp on the next frame
+    // Nothing from the previous level carries over: sparks, emission debt, eased angles.
+    this.particles = [];
+    this.emitDebt.clear();
+    this.angles.clear();
   }
 
   /** A gentle burst from each target, e.g. when the level is solved. */

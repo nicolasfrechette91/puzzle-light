@@ -138,6 +138,8 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
   // Emitters emit whether or not light reaches them, so they are decided up front.
   const emitterCells = decisionCells.filter((i) => original.get(i)!.kind === 'emitter');
 
+  // The portal-twin rule only matters if a portal exists anywhere.
+  const hasPortals = work.cells.some((p) => p?.kind === 'portal') || work.inv.some((s) => s.proto.kind === 'portal');
   const visited = new Set<string>();
   const found = new Map<string, Solution>();
   let nodes = 0;
@@ -226,6 +228,7 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
     }
 
     // A lit portal still missing its twin: the twin's exit may go on any empty cell.
+    if (!hasPortals) return;
     const partner = portalPartners(work);
     for (let q = 0; q < work.size; q++) {
       const p = work.cells[q];

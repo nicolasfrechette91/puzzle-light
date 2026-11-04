@@ -1,7 +1,9 @@
 # Roadmap
 
-We work milestone by milestone and review together at each one (no long
-unattended runs). Every milestone ends with a commit and a push.
+Milestones run back to back under the async decision policy in
+[DECISIONS.md](DECISIONS.md). Each finished milestone is pushed to the
+development branch **and to `main`**, which deploys to GitHub Pages, followed
+by a short summary with the new decision entries.
 
 | # | Milestone | Status |
 |---|-----------|--------|
@@ -12,6 +14,11 @@ unattended runs). Every milestone ends with a commit and a push.
 | 5 | Level editor, test-play, solver check, share via URL hash | **done** |
 | 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | **done** |
 | 7 | GitHub Pages deploy, README with GIF/screenshots | **done** |
+| 8 | Generator: seeded levels, unique, every piece matters, difficulty band | **done** |
+| 9 | Daily puzzle: date seed, streak, time, spoiler-free share | next |
+| 10 | Endless mode: easy / medium / hard | |
+| 11 | World 6 (8+ combination levels) + 5 expert bonus levels | |
+| 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | |
 
 ## M1: delivered
 
@@ -115,6 +122,25 @@ All design decisions, with the policy used to make them, live in
 * README with a gameplay GIF and screenshots (D-045). Media were captured with
   Playwright from the dev server (stills at 2× as WebP; the GIF from a scripted
   session, assembled with Pillow).
+
+## M8: delivered
+
+* `src/core/generate.ts`: builds the solution first, then blocks rival
+  solutions and tidies walls (D-051). Seeded through `src/core/random.ts`, so a
+  seed gives the same level in every engine (D-050). `GENERATOR_VERSION` pins
+  the output, and a snapshot test fails if it changes unintentionally.
+* Three tiers (D-052). Across 20 seeds each, every seed produced a level:
+
+  | tier | difficulty | median | slowest |
+  |---|---|---|---|
+  | easy | 5–9 | 2 ms | 11 ms |
+  | medium | 10–15 | 70 ms | 0.65 s |
+  | hard | 14–19 | 0.36 s | 1.5 s |
+
+* `npm run generate -- --tier hard --seed 5 [--count N] [--json]`.
+* Solver is about 20% faster on boards without portals (D-053).
+* Tests: PRNG, exact band check, determinism, every acceptance rule
+  re-verified by the solver, and a pinned golden level.
 
 ## Open questions for the owner
 

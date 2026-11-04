@@ -33,6 +33,8 @@ src/
     solver.ts           beam-guided exhaustive solver (counts, min pieces, difficulty)
     hint.ts             next step towards the nearest solution, in light order
     share.ts            level ⇄ URL share code (versioned base64url JSON)
+    random.ts           seeded PRNG (mulberry32) + string → seed (FNV-1a)
+    generate.ts         seeded procedural levels, verified by the solver
   game/                 browser-only
     game.ts             controller: level, board, history, trace, win state
     layout.ts           responsive geometry + hit testing
@@ -188,6 +190,27 @@ hit[cell]          : colour mask absorbed at `cell`
 
 Rendering derives line segments from `out` afterwards, so the solver can skip
 that step.
+
+## Generator (`src/core/generate.ts`)
+
+`generate({ seed, tier })` → a level the solver has proven, or null. Each
+attempt (seeded independently from the master seed):
+
+1. emitters on the border, facing inward;
+2. pieces placed one by one on cells light reaches, only where they change
+   it (the most light-keeping of a few sampled options);
+3. targets where beams end, wanting whatever arrives; pieces that stopped
+   mattering are dropped;
+4. pieces go to the tray, or stay put as rotate-only at a scrambled angle;
+   walls go only on cells the solution's light never touches;
+5. while the solver finds a rival solution, block a cell only the rival uses
+   (wall if unlit in the solution, glass if lit); then tidy away walls that
+   uniqueness doesn't need.
+
+Accepted when the solution is unique, every tray and rotatable piece is in
+it, the start isn't solved and `log2(states) + decisions` is in the tier's
+band, tested with exact integers (`states × 2^decisions` against powers of
+two) so the choice can't differ between JavaScript engines.
 
 ## Solver (`src/core/solver.ts`)
 

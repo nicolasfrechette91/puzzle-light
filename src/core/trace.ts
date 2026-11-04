@@ -33,21 +33,43 @@ export function nextCell(b: Board, cell: number, dir: number): number {
  * other cells and for unpaired portals (which absorb light).
  */
 export function portalPartners(b: Board): Int32Array {
+  // Fast path: most boards have no portals, so share one all-unpaired answer.
+  const { cells } = b;
+  let any = false;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i]?.kind === 'portal') {
+      any = true;
+      break;
+    }
+  }
+  if (!any) return noPartners(b.size);
   const partner = new Int32Array(b.size).fill(-1);
-  const byLink = new Map<number, number[]>();
-  b.cells.forEach((p, i) => {
-    if (p?.kind !== 'portal') return;
-    const link = p.link ?? 0;
-    const list = byLink.get(link);
-    if (list) list.push(i);
-    else byLink.set(link, [i]);
-  });
-  for (const list of byLink.values()) {
-    if (list.length !== 2) continue;
-    partner[list[0]!] = list[1]!;
-    partner[list[1]!] = list[0]!;
+  // Pair ids are single digits: first and second cell seen per id, and how many.
+  const first = new Int32Array(10).fill(-1);
+  const second = new Int32Array(10).fill(-1);
+  const count = new Int32Array(10);
+  for (let i = 0; i < cells.length; i++) {
+    const p = cells[i];
+    if (p?.kind !== 'portal') continue;
+    const link = (p.link ?? 0) % 10;
+    if (count[link] === 0) first[link] = i;
+    else if (count[link] === 1) second[link] = i;
+    count[link]!++;
+  }
+  for (let l = 0; l < 10; l++) {
+    if (count[l] !== 2) continue;
+    partner[first[l]!] = second[l]!;
+    partner[second[l]!] = first[l]!;
   }
   return partner;
+}
+
+const unpaired = new Map<number, Int32Array>();
+/** A shared, read-only "nobody is paired" array per board size. */
+function noPartners(size: number): Int32Array {
+  let a = unpaired.get(size);
+  if (!a) unpaired.set(size, (a = new Int32Array(size).fill(-1)));
+  return a;
 }
 
 export interface Arrival {

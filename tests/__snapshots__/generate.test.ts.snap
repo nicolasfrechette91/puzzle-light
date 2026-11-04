@@ -1,0 +1,16 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generate > produces a pinned level for a pinned seed (bump GENERATOR_VERSION when this changes on purpose) 1`] = `
+{
+  "grid": [
+    ".   .   #   .   .   .",
+    ".   .   .   .   #   .",
+    ".   .   .   .   .   Eg4",
+    ".   Tg  .   .   #   .",
+  ],
+  "inv": {
+    "M": 1,
+  },
+  "name": "Lunar Lantern",
+}
+`;

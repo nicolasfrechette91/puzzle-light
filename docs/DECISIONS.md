@@ -358,3 +358,43 @@ Process:
   * **Palette:** four labelled groups. Each tool has a visible label and a one-line tooltip (`title` and `aria-label`). Hover only lifts the border slightly; the selected tool gets a bright border, a glow, a tint and a bold label.
 * **Verified:** every icon rendered at 24 px with a device pixel ratio of 1, converted to greyscale and upscaled ×4. All 11 stay distinct. The first pass caught three problems that were fixed: a filter that drew as a solid square (a funnel scale bug), a prism that read as a bowtie, and a black hole whose dark disc vanished.
 * **Reason:** Policy 1 (player clarity): the piece's role is visible from its shape alone, on the board and in every menu.
+
+### D-050 · The generator is pure and deterministic (M8, by: claude)
+* **Question:** Where does procedural generation live, and how is "deterministic from a seed" guaranteed, given that daily puzzles (M9) must be the same for everyone?
+* **Options:** A browser-only module using `Math.random`; core code with a seeded PRNG.
+* **Choice:**
+  * The generator lives in `src/core/generate.ts`, driven by `src/core/random.ts` (mulberry32 on 32-bit integer maths, uniform via rejection sampling). The PRNG never reads `Math.random` or the clock.
+  * The difficulty band is checked with exact integers (`states × 2^decisions` against powers of two), not `Math.log2`, so no engine-specific rounding can pick a different level.
+  * `GENERATOR_VERSION` goes into generated ids, and a snapshot test pins seed 1. Changing the output means bumping the version on purpose.
+* **Reason:** Keeps `src/core` pure (CLAUDE.md), makes the output reproducible in tests, the CLI, workers and every browser, and needs no dependencies.
+
+### D-051 · What the generator accepts (M8, by: claude)
+* **Question:** How are "unique solution" and "no pieces that make no difference" made concrete?
+* **Choice:**
+  * **Unique:** the solver finds exactly one solution (D-014).
+  * **Every piece matters:** the unique solution uses every tray piece, and every rotate-only piece is active in it. There are no decoys and no decorative fixed optics: every piece the construction placed ends up in the tray or rotate-only.
+  * **Fair start:** not solved at the start.
+  * **Difficulty:** inside the tier's band.
+  * **Repair:** rival solutions are removed by blocking a cell only they use: a wall where the solution's light never goes, glass where it does (as in D-027). Then up to 4 walls that uniqueness doesn't need are tidied away.
+  * **Names:** seeded "Adjective Noun" names from calm word lists.
+* **Reason:** Policy 2 (solver-verified, unique), applied mechanically; and policy 1, since no piece exists without a purpose.
+
+### D-052 · Generator tiers (M8, by: claude)
+* **Question:** What should easy, medium and hard generate?
+* **Choice:**
+
+  | tier | board | bends | emitters | pieces | kinds | band |
+  |---|---|---|---|---|---|---|
+  | easy | 5×4 to 6×5 | 90° | 1, red/green/blue | 1–2 | mirrors | 5–10 |
+  | medium | 6×5 to 7×5 | 45° | 1–2, incl. white | 2–3 | mirrors, splitters, filters | 10–15 |
+  | hard | 6×5 to 7×5 | 45° | 1–2, often white | 3 | adds prisms and black holes | 14–19 |
+
+  * In hard, half the pieces stay on the board as rotate-only.
+  * Portals are left out.
+  * Search budgets come from the band: a final search past `2^(hi − fewest pieces)` states can't be in band, so it stops there.
+* **Reason:** Policy 3 (prefer what the solver searches fast), and measured. The first hard spec (up to 8×6, 3–4 pieces) took a 4 s median and 34 s worst case per level. The chosen one takes 0.36 s median and 1.5 s worst, still at difficulty 14–19 (the World 3–5 finales score 14–19). Portals make construction non-local, which can wait until an "expert" tier is wanted.
+
+### D-053 · Solver fast path for portal-free boards (M8, by: claude)
+* **Question:** Profiling showed `portalPartners` taking 14% of solver time, rebuilt on every trace.
+* **Choice:** Boards without portals share one read-only "unpaired" array, the pairing uses fixed arrays instead of a Map, and the solver skips its portal-twin rule when the level has no portals at all. Results are unchanged: the same state counts, and the brute-force cross-check passes.
+* **Reason:** About 20% faster solving, which makes in-browser generation and hints cheaper.
