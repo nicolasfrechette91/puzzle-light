@@ -268,11 +268,7 @@ p90. Same sample as the audit (50 dailies, endless #1–30 per tier):
     D-074); see "Generator v2" above.
   * ~~**Idle frames**~~: the bloom covers only the board, and the page stops
     drawing once nothing moves (D-076).
-  * **Hint queue:** switching levels quickly queues one solve per level in the
-    hint worker, so the current level waits behind stale ones. Superseding
-    stale requests, as the editor's solver does, would fix that.
-  * **`#edit=<bad code>`** quietly opens the draft, where `#play=` explains
-    what went wrong.
+  * ~~**Hint queue**, **`#edit=<bad code>`**~~: done (D-077).
 
 ## Handoff notes
 

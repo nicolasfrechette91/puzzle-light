@@ -517,14 +517,17 @@ function route(): void {
     }
   } else if (hash === 'edit' || hash.startsWith('edit=')) {
     let level: LevelData | undefined;
+    let problem = '';
     try {
       if (hash.startsWith('edit=')) level = decodeLevel(hash.slice(5));
-    } catch {
-      level = undefined;
+    } catch (e) {
+      problem = (e as Error).message; // the editor opens on the draft and says why, as #play= does
     }
     if (mode === 'campaign') campaignIndex = game.index;
     mode = 'edit';
-    void openEditor(level);
+    void openEditor(level).then(() => {
+      if (problem) editor?.say(`That link didn't work: ${problem}. Here is your draft instead.`, 8000);
+    });
   } else if (hash === 'test' && testLevel) {
     play('test', [testLevel]);
   } else if (hash === 'daily') {

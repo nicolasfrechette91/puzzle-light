@@ -196,13 +196,14 @@ export class EditorUI {
     return c.state === 'done' && c.key === this.key() && c.result.complete && c.result.count > 0 ? c.result : null;
   }
 
-  private say(msg: string): void {
+  /** A message in the status line for a while (e.g. "Saved", or why a link didn't open). */
+  say(msg: string, ms = 2600): void {
     this.flash = msg;
     window.clearTimeout(this.flashTimer);
     this.flashTimer = window.setTimeout(() => {
       this.flash = '';
       this.renderStatus();
-    }, 2600);
+    }, ms);
     this.renderStatus();
   }
 

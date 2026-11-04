@@ -69,9 +69,10 @@ export function nextCell(b: Board, cell: number, dir: number): number {
 
 /**
  * Partner cell for every portal whose pair id appears exactly twice; -1 for
- * other cells and for unpaired portals (which absorb light).
+ * other cells and for unpaired portals (which absorb light). Read-only: a
+ * board without portals gets a shared, frozen answer.
  */
-export function portalPartners(b: Board): Int32Array {
+export function portalPartners(b: Board): ArrayLike<number> {
   // Fast path: most boards have no portals, so share one all-unpaired answer.
   const { cells } = b;
   let any = false;
@@ -103,11 +104,11 @@ export function portalPartners(b: Board): Int32Array {
   return partner;
 }
 
-const unpaired = new Map<number, Int32Array>();
-/** A shared, read-only "nobody is paired" array per board size. */
-function noPartners(size: number): Int32Array {
+const unpaired = new Map<number, readonly number[]>();
+/** A shared "nobody is paired" array per board size, frozen so no caller can change it for everyone. */
+function noPartners(size: number): readonly number[] {
   let a = unpaired.get(size);
-  if (!a) unpaired.set(size, (a = new Int32Array(size).fill(-1)));
+  if (!a) unpaired.set(size, (a = Object.freeze(new Array<number>(size).fill(-1))));
   return a;
 }
 

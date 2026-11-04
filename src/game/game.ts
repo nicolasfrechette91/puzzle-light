@@ -51,6 +51,7 @@ export class Game {
   private start!: Board;
   private solutions: Solution[] | null = null;
   private solving: LevelData | null = null;
+  private solveToken = 0;
   private listeners = new Set<(e: GameEvent) => void>();
 
   constructor(levels: LevelData[], start = 0) {
@@ -98,8 +99,11 @@ export class Game {
     if (!this.solveAsync || this.solutions || this.solving === this.level) return;
     const level = this.level;
     this.solving = level;
+    // Only the newest request counts: an older one may still answer (or fail as
+    // cancelled, D-077), even for this same level loaded a second time.
+    const token = ++this.solveToken;
     const done = (s: Solution[] | null) => {
-      if (this.level !== level || this.solving !== level) return;
+      if (token !== this.solveToken || this.level !== level) return;
       this.solving = null;
       this.solutions = s ?? solve(this.start, HINT_SOLVE).solutions;
       if (this.hintPending) {

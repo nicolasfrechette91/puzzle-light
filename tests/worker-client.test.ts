@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WorkerClient, WorkerFailure } from '../src/game/worker-client';
+import { Cancelled, WorkerClient, WorkerFailure } from '../src/game/worker-client';
 
 /** A stand-in Worker whose replies and failures the test drives by hand. */
 class FakeWorker {
@@ -52,5 +52,26 @@ describe('WorkerClient', () => {
     expect(made).toHaveLength(2);
     made[1]!.reply({ id: made[1]!.posted[0]!.id, ok: true, out: 3 });
     await expect(again).resolves.toBe(3);
+  });
+
+  // Hints: a level the player has left shouldn't keep the worker busy.
+  it('with `supersede`, cancels a request still running when a new one arrives', async () => {
+    const made: FakeWorker[] = [];
+    const c = new WorkerClient<{ x: number }, number>(() => {
+      made.push(new FakeWorker());
+      return made[made.length - 1] as unknown as Worker;
+    }, { supersede: true });
+    const first = c.request({ x: 1 });
+    const second = c.request({ x: 2 });
+    await expect(first).rejects.toBeInstanceOf(Cancelled);
+    expect(made[0]!.terminated).toBe(true);
+    expect(made).toHaveLength(2);
+    made[1]!.reply({ id: made[1]!.posted[0]!.id, ok: true, out: 2 });
+    await expect(second).resolves.toBe(2);
+    // Once nothing is running, the same worker is kept.
+    const third = c.request({ x: 3 });
+    expect(made).toHaveLength(2);
+    made[1]!.reply({ id: made[1]!.posted[1]!.id, ok: true, out: 3 });
+    await expect(third).resolves.toBe(3);
   });
 });

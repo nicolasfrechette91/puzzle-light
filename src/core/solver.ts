@@ -91,8 +91,12 @@ class Stop extends Error {
   }
 }
 
-/** Placeholder for an undecided rotate-only piece: absorbs light, so reaching it is visible in `lit`. */
-const UNDECIDED: Piece = { kind: 'hole', rot: 0, color: 0, lock: 'fixed' };
+/**
+ * Placeholder for an undecided rotate-only piece: absorbs light, so reaching
+ * it is visible in `lit`. It must not pinch corners, and no rotatable piece
+ * may either (tests/invariants.test.ts checks both).
+ */
+export const UNDECIDED: Readonly<Piece> = { kind: 'hole', rot: 0, color: 0, lock: 'fixed' };
 
 /**
  * Does a piece with this orientation change light arriving like this?

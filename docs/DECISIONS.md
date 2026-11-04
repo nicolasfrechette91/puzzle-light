@@ -638,3 +638,12 @@ Process:
   | 24×24 stress, 2× | 115.7 ms | 93.2 ms | 9 | 0 |
 
 * **Reason:** Battery and heat on phones, with the calm feel kept while someone is playing. A board that stops shimmering while the player thinks is, if anything, calmer. The 8 s delay is one constant (`SETTLE_AFTER_MS`) if it should change.
+
+### D-077 · Robustness follow-ups (post-audit, by: user + claude)
+* **Question:** The audit listed four weak spots: assumptions the solver relies on that nothing checked, a shared array any caller could change, hint solves that kept running after the player left a level, and `#edit=<bad code>` opening the draft without a word.
+* **Choice:**
+  * **Solver assumptions as a test:** `tests/invariants.test.ts` fails if any piece that can be turned, or that a level may make movable, could pinch a corner, or if the solver's "undecided" placeholder could. The solver's "only lit pieces matter" pruning depends on both.
+  * **Frozen shared array:** a board without portals gets one shared "nobody is paired" answer per board size. It is now a frozen array (a write throws), and `portalPartners` returns `ArrayLike<number>`, so the types forbid writes too. Boards with portals still get their own copy.
+  * **Hints follow the player:** the hint client is created with `supersede`. A request that arrives while another is running stops the worker (a search can't be interrupted otherwise), cancels the old request and starts afresh. The game ignores any answer except its newest, even for the same level loaded twice. After leaving Expert 7-5 mid-solve, the next level's hint took 45 ms instead of 487 ms.
+  * **`#edit=<bad code>`:** the editor still opens on the draft, and its status line says why, as `#play=` does: "That link didn't work: share code is damaged. Here is your draft instead."
+* **Reason:** Each turns a silent assumption or a silent failure into something checked or shown (policies 1 and 2).
