@@ -5,6 +5,9 @@ import { parseLevel, type LevelData } from '../core/level';
 import { solve, type Solution } from '../core/solver';
 import { trace, type Trace } from '../core/trace';
 
+/** The player action behind the latest 'change' (for sound and effects). */
+export type GameAction = 'rotate' | 'place' | 'move' | 'pickUp' | 'undo' | 'redo' | 'reset' | 'hint' | 'load';
+
 export type GameEvent =
   /** Board or history changed. */
   | 'change'
@@ -31,6 +34,11 @@ export class Game {
   hintShown: Hint | null = null;
   /** Hints asked for on this level. */
   hintsUsed = 0;
+  lastAction: GameAction = 'load';
+  /** Rotation direction of the latest rotate action. */
+  lastDelta = 0;
+  /** Whether level `i` may be played (world gates in the campaign). */
+  isOpen: (i: number) => boolean = () => true;
 
   private history!: History<Board>;
   private start!: Board;
@@ -69,16 +77,17 @@ export class Game {
     this.hintsUsed = 0;
     this.history = new History(b, (s) => s.key());
     this.solved = false;
+    this.lastAction = 'load';
     this.setBoard(b.clone(), false);
     this.emit('level');
   }
 
   get hasPrev(): boolean {
-    return this.index > 0;
+    return this.index > 0 && this.isOpen(this.index - 1);
   }
 
   get hasNext(): boolean {
-    return this.index < this.levels.length - 1;
+    return this.index < this.levels.length - 1 && this.isOpen(this.index + 1);
   }
 
   get canUndo(): boolean {
@@ -103,34 +112,42 @@ export class Game {
   }
 
   rotate(cell: number, delta: number): boolean {
+    this.lastAction = 'rotate';
+    this.lastDelta = delta;
     return this.apply((b) => b.rotate(cell, delta), `rot:${cell}`);
   }
 
   place(slot: number, cell: number): boolean {
+    this.lastAction = 'place';
     return this.apply((b) => b.place(slot, cell));
   }
 
   move(from: number, to: number): boolean {
+    this.lastAction = 'move';
     return this.apply((b) => b.move(from, to));
   }
 
   pickUp(cell: number): boolean {
+    this.lastAction = 'pickUp';
     return this.apply((b) => b.pickUp(cell));
   }
 
   undo(): void {
     const s = this.history.undo();
+    this.lastAction = 'undo';
     if (s) this.setBoard(s.clone(), true);
   }
 
   redo(): void {
     const s = this.history.redo();
+    this.lastAction = 'redo';
     if (s) this.setBoard(s.clone(), true);
   }
 
   /** Back to the level's starting state. Recorded in history, so it can be undone. */
   reset(): void {
     const fresh = parseLevel(this.level);
+    this.lastAction = 'reset';
     if (this.history.push(fresh)) this.setBoard(fresh.clone(), true);
   }
 
@@ -143,6 +160,7 @@ export class Game {
     this.solutions ??= solve(this.start, { maxNodes: 2_000_000, maxSolutions: 50 }).solutions;
     this.hintShown = nextHint(this.start, this.board, this.solutions);
     if (this.hintShown) this.hintsUsed++;
+    this.lastAction = 'hint';
     this.emit('change');
     return this.hintShown;
   }

@@ -25,6 +25,10 @@ npm run build      # typecheck + static build into dist/
 | move / remove a piece | drag it; drop off the board to return it | same |
 | undo / redo / reset | `Z` / `Y` (or `Shift+Z`) / `R` | toolbar |
 | previous / next level | `[` / `]` | toolbar |
+| level select | `L` | grid button |
+| hint | `H` | lightbulb |
+| sound on/off | `M` | speaker (level select on phones) |
+| play by keyboard | arrows move, Space turns or places, 1–9 pick a tray piece, Backspace returns it | |
 
 ## Level editor
 

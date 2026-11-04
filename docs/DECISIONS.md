@@ -246,3 +246,68 @@ Process:
 * **Question:** Should players download the editor?
 * **Choice:** It is a dynamic `import()`, and the solver worker is its own chunk.
 * **Reason:** The game stays about 54 kB of JS before gzip; the editor adds about 18 kB, the worker about 10 kB.
+
+### D-036 · World gates (M6, by: reviewer)
+* **Question:** Should levels be gated (revisiting D-011)?
+* **Options:**
+  * A: everything open.
+  * B: strict sequence, each level unlocks the next.
+  * C: world gates, all levels of an open world playable, the next world opening after N solves.
+* **Choice:** C with a flat N = 6.
+  * World 1 is open from the start; every level inside an open world stays open.
+  * "Next level" follows the teaching order.
+  * Par never gates anything.
+  * Unlock state is derived from progress, so nothing changes in the level JSON.
+* **Reason:** Policy 1. Later worlds assume earlier pieces, and one or two stuck levels never block progress. A simple "Solve 6 to open" line is visible in the level select and on the solved banner.
+
+### D-037 · Bloom without canvas filters (M6, by: claude)
+* **Question:** How should beams get a bloom-like glow?
+* **Options:** `ctx.filter = 'blur()'`; WebGL; strokes into a quarter-resolution layer, upscaled with smoothing and additive blending.
+* **Choice:** The low-resolution layer, drawn twice, on top of the layered additive strokes from M1.
+* **Reason:** Works in every browser (canvas filters aren't universal), costs one small canvas, and needs no dependencies.
+
+### D-038 · Particles (M6, by: claude)
+* **Question:** Where do particles appear, and how many?
+* **Choice:**
+  * Sparks drift from targets receiving light, in the arriving colour: about 7 per second when the colour is right, 2.5 when it isn't, so wrong colours read as dimmer.
+  * A soft burst from every target on solve.
+  * Capped at 600; a quarter of the rate, and small bursts, with `prefers-reduced-motion`.
+* **Reason:** Feedback where the player is looking, without noise elsewhere (calm).
+
+### D-039 · Rotation tweens are display-only (M6, by: claude)
+* **Question:** Should beams follow a rotating mirror's animation?
+* **Options:** Animate the beam too; snap the beam and animate only the piece.
+* **Choice:** The beam updates instantly. The piece eases (exponential, about 100 ms) along the shortest way, respecting symmetry: mirrors and splitters every 180°, emitters and prism wedges every 360°. No tween with reduced motion.
+* **Reason:** The rules stay discrete and readable (policy 1); the motion only softens the change.
+
+### D-040 · Sound (M6, by: claude)
+* **Question:** What does the audio do, and how is it controlled?
+* **Choice:**
+  * **Synthesis only:** no audio files.
+  * **Ambient:** a pad wandering through A minor pentatonic chords, occasional bells, generated reverb.
+  * **Chimes:** one per colour, in the same scale, when a target becomes satisfied, plus an arpeggio of the targets' notes on solve.
+  * **Effects:** soft ticks and taps for turning and placing.
+  * **Control:** on by default but started only by a user gesture; one toggle (button or `M`) that is remembered; suspended while the tab is hidden.
+* **Reason:** No copyrighted assets; notes keyed to colours tie sound to the light.
+
+### D-041 · What progress records (M6, by: claude)
+* **Question:** What is saved, and where does the game resume?
+* **Choice:**
+  * Saved: solved, fewest pieces (for par ✦) and fewest hints per level, plus the last level played.
+  * Resume at the last level if it is open and unsolved; otherwise the next open unsolved level after it.
+  * `?l=N` still jumps anywhere, for development.
+* **Reason:** Enough for the level select and par marks; the hint count is kept for later use without being shown (calm, no shaming).
+
+### D-042 · Phone toolbar (M6, by: claude)
+* **Question:** Eight-plus toolbar buttons don't fit a 390 px phone next to the title.
+* **Choice:** Under 600 px, the editor and sound buttons move into the level-select sheet (they stay in the toolbar during a test or a shared level). Under 420 px, previous/next are hidden; the level select and "Next level" cover navigation. The title truncates instead of overlapping.
+* **Reason:** Touch targets stay at least 36 px and nothing overlaps.
+
+### D-043 · Keyboard play (M6, by: claude)
+* **Question:** Can the board be played without a pointer?
+* **Choice:**
+  * Arrow keys move a cursor ring.
+  * Space or Enter turns the piece under it (Shift turns it back) or places the selected tray piece.
+  * Number keys 1–9 select a tray slot; Backspace or Delete returns a piece to the tray.
+  * Pointer input hides the cursor.
+* **Reason:** Accessibility at small cost; it reuses the same tap logic, so the rules are identical.

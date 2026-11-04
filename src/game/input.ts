@@ -56,6 +56,8 @@ export class Input {
   preview: Preview | null = null;
   /** Start time of a press that may become a long-press (for visual feedback). */
   pressStart: { cell: number; t0: number } | null = null;
+  /** Keyboard cursor cell, or -1 while the pointer is in use. */
+  cursor = -1;
 
   private readonly canvas: HTMLCanvasElement;
   private readonly game: Game;
@@ -75,10 +77,12 @@ export class Input {
     canvas.addEventListener('pointerleave', this.onLeave);
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
+    window.addEventListener('keydown', this.onKey);
     game.on((e) => {
       // finishDrag clears `drag` before acting, so a change seen mid-drag came from
       // elsewhere (undo shortcut, level switch): the carried piece is stale.
       if (e === 'level' || this.drag) this.cancel();
+      if (e === 'level') this.cursor = -1;
       const slot = this.game.board.inv[this.selectedSlot];
       if (!slot || slot.count <= 0) this.selectedSlot = -1;
     });
@@ -104,7 +108,55 @@ export class Input {
     return [e.clientX - r.left, e.clientY - r.top];
   }
 
+  /**
+   * Keyboard play: arrows move a cursor; Space/Enter turns the piece under it
+   * (Shift turns back) or places the selected tray piece; 1–9 pick a tray
+   * slot; Backspace/Delete return a piece to the tray.
+   */
+  private onKey = (e: KeyboardEvent): void => {
+    if (this.canvas.offsetParent === null || document.querySelector('.overlay:not([hidden])')) return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, button')) return;
+    const b = this.game.board;
+    const move: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const step = move[e.key];
+    if (step) {
+      if (this.cursor < 0) this.cursor = this.firstInteresting();
+      else {
+        const x = Math.max(0, Math.min(b.w - 1, b.x(this.cursor) + step[0]));
+        const y = Math.max(0, Math.min(b.h - 1, b.y(this.cursor) + step[1]));
+        this.cursor = b.idx(x, y);
+      }
+      e.preventDefault();
+      return;
+    }
+    if (/^[1-9]$/.test(e.key) && Number(e.key) <= b.inv.length) {
+      this.tap({ kind: 'slot', slot: Number(e.key) - 1 }, 1);
+      if (this.cursor < 0) this.cursor = this.firstInteresting();
+      e.preventDefault();
+      return;
+    }
+    if (this.cursor < 0) return;
+    if (e.key === ' ' || (e.key === 'Enter' && !this.game.solved)) {
+      this.tap({ kind: 'cell', cell: this.cursor }, e.shiftKey ? -1 : 1);
+      e.preventDefault();
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      this.game.pickUp(this.cursor);
+      e.preventDefault();
+    }
+  };
+
+  /** Where a keyboard cursor starts: the first piece the player can touch, else the centre. */
+  private firstInteresting(): number {
+    const b = this.game.board;
+    const i = b.cells.findIndex((p) => p && (canRotate(p) || canMove(p)));
+    return i >= 0 ? i : b.idx(b.w >> 1, b.h >> 1);
+  }
+
   private onDown = (e: PointerEvent): void => {
+    this.cursor = -1;
+    // Hand keyboard focus back to the board (a toolbar button may still hold it).
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     if (this.press || (e.button !== 0 && e.button !== 2)) return;
     const [x, y] = this.local(e);
     const L = this.layout();

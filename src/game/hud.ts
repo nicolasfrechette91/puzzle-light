@@ -21,6 +21,14 @@ export class Hud {
   private notice = '';
   /** Called by the pencil button: open the editor (or go back to it). */
   onEdit: () => void = () => {};
+  /** Open the level select. */
+  onLevels: () => void = () => {};
+  /** Toggle sound; returns whether it is now on. */
+  onSound: () => boolean = () => false;
+  /** Whether sound is on (for the button state). */
+  soundOn: () => boolean = () => false;
+  /** Why the next level is closed, if it is (world gates). */
+  lockNote: () => string | null = () => null;
   private readonly el = {
     num: $('#level-num'),
     name: $('#level-name'),
@@ -35,6 +43,8 @@ export class Hud {
     reset: $<HTMLButtonElement>('#btn-reset'),
     hint: $<HTMLButtonElement>('#btn-hint'),
     edit: $<HTMLButtonElement>('#btn-edit'),
+    levels: $<HTMLButtonElement>('#btn-levels'),
+    sound: $<HTMLButtonElement>('#btn-sound'),
     view: $('#play-view'),
   };
 
@@ -50,6 +60,11 @@ export class Hud {
     el.reset.addEventListener('click', () => game.reset());
     el.hint.addEventListener('click', () => game.hint());
     el.edit.addEventListener('click', () => this.onEdit());
+    el.levels.addEventListener('click', () => this.onLevels());
+    el.sound.addEventListener('click', () => {
+      this.onSound();
+      this.update();
+    });
     window.addEventListener('keydown', this.onKey);
     game.on((e) => {
       if (e === 'level') this.notice = '';
@@ -63,6 +78,11 @@ export class Hud {
     const label = mode === 'test' ? 'Back to the editor' : mode === 'shared' ? 'Edit a copy in the editor' : 'Level editor';
     this.el.edit.title = label;
     this.el.edit.setAttribute('aria-label', label);
+    this.update();
+  }
+
+  /** Re-read state that lives outside the game (e.g. sound). */
+  refresh(): void {
     this.update();
   }
 
@@ -84,6 +104,11 @@ export class Hud {
     else if (key === 'y') g.redo();
     else if (key === 'r' && !mod) g.reset();
     else if (key === 'h' && !mod) g.hint();
+    else if (key === 'l' && !mod && this.mode === 'campaign') this.onLevels();
+    else if (key === 'm' && !mod) {
+      this.onSound();
+      this.update();
+    }
     else if ((key === ']' || key === 'n') && !mod) g.next();
     else if (key === '[' || (key === 'p' && !mod)) g.prev();
     else if (key === 'enter' && g.solved && document.activeElement === document.body) g.next();
@@ -108,7 +133,13 @@ export class Hud {
             ? `${world.name} · ${n}`
             : `${g.index + 1} / ${g.levels.length}`;
     const campaign = this.mode === 'campaign';
-    el.prev.hidden = el.next.hidden = !campaign;
+    el.prev.hidden = el.next.hidden = el.levels.hidden = !campaign;
+    // On narrow screens the editor lives in the level select during the campaign.
+    el.edit.classList.toggle('wide-only', campaign);
+    const on = this.soundOn();
+    el.sound.classList.toggle('off', !on);
+    el.sound.title = on ? 'Sound on (M)' : 'Sound off (M)';
+    el.sound.setAttribute('aria-pressed', String(on));
     el.name.textContent = g.level.name;
     document.title = `${g.level.name} · Puzzle Light`;
     el.prev.disabled = !g.hasPrev;
@@ -124,8 +155,10 @@ export class Hud {
     if (g.solved) {
       const par = g.level.par;
       const used = g.piecesUsed;
+      const lock = campaign ? this.lockNote() : null;
       el.solvedText.textContent =
-        par === undefined ? 'Solved' : used <= par ? `Solved · ${used} of par ${par} ✦` : `Solved · ${used} pieces (par ${par})`;
+        (par === undefined ? 'Solved' : used <= par ? `Solved · ${used} of par ${par} ✦` : `Solved · ${used} pieces (par ${par})`) +
+        (lock ? ` · ${lock}` : '');
       el.cont.hidden = !g.hasNext || !campaign;
     }
   }

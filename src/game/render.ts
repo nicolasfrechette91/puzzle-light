@@ -23,6 +23,8 @@ export interface InputView {
   hoverSlot: number;
   selectedSlot: number;
   pressStart: { cell: number; t0: number } | null;
+  /** Keyboard cursor cell (-1 or absent: none). */
+  cursor?: number;
 }
 
 const TAU = Math.PI * 2;
@@ -59,6 +61,27 @@ interface PieceStyle {
   positions?: number;
   /** Direction light travels into the piece (prisms point along it). */
   inDir?: number;
+  /** Displayed angle in degrees, when animating towards the real orientation. */
+  angle?: number;
+}
+
+/** A spark drifting away from a lit target, in cell units relative to the board. */
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  age: number;
+  color: Color;
+  size: number;
+}
+
+const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/** Shortest signed difference a → b on a circle of `period` degrees. */
+function angleDelta(a: number, b: number, period: number): number {
+  return ((((b - a) % period) + period * 1.5) % period) - period / 2;
 }
 
 export class Renderer {
@@ -66,12 +89,48 @@ export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private dpr = 1;
   private segCache: { trace: Trace; segs: Segment[] } | null = null;
+  /** Low-resolution layer for the bloom: beams drawn small, then scaled up soft. */
+  private readonly glow = document.createElement('canvas');
+  private readonly glowCtx: CanvasRenderingContext2D | null;
+  /** Displayed angles per cell, eased towards the real orientation. */
+  private angles = new Map<number, { kind: string; angle: number }>();
+  private particles: Particle[] = [];
+  private lastMs = 0;
+  private emitDebt = new Map<number, number>();
+  private fadeStart = -1;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
+    this.glowCtx = this.glow.getContext('2d');
+  }
+
+  /** Fade the board in (call when a new level appears). */
+  fadeIn(): void {
+    this.fadeStart = reducedMotion() ? -1 : -2; // resolved to a timestamp on the next frame
+  }
+
+  /** A gentle burst from each target, e.g. when the level is solved. */
+  celebrate(targets: readonly { cell: number; want: Color }[], cols: number): void {
+    const n = reducedMotion() ? 6 : 26;
+    for (const t of targets) {
+      for (let k = 0; k < n; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const v = 0.6 + Math.random() * 1.4;
+        this.particles.push({
+          x: (t.cell % cols) + 0.5,
+          y: Math.floor(t.cell / cols) + 0.5,
+          vx: Math.cos(a) * v,
+          vy: Math.sin(a) * v,
+          life: 0.9 + Math.random() * 0.9,
+          age: 0,
+          color: t.want,
+          size: 0.025 + Math.random() * 0.03,
+        });
+      }
+    }
   }
 
   resize(width: number, height: number): void {
@@ -85,15 +144,48 @@ export class Renderer {
     const time = nowMs / 1000;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const view = input.preview ?? { board: game.board, trace: game.trace };
+    const dt = Math.min(0.1, Math.max(0, (nowMs - (this.lastMs || nowMs)) / 1000));
+    this.lastMs = nowMs;
 
     this.background(L);
     this.floor(view.board, L, input);
     this.beams(view.board, view.trace, L, time, game.solved && !input.preview);
-    this.pieces(view.board, view.trace, L, time);
+    this.updateParticles(view.board, view.trace, dt);
+    this.drawParticles(L);
+    this.pieces(view.board, view.trace, L, time, dt);
     this.interaction(game.board, input, L, nowMs);
     if (!input.drag && game.hintShown) this.hint(game.board, game.hintShown, L, time);
     this.tray(game.board, input, L, time, input.drag ? null : game.hintShown);
     this.ghost(input, L, time);
+    this.cursor(input, L, time);
+    if (this.fadeStart === -2) this.fadeStart = nowMs;
+    if (this.fadeStart >= 0) {
+      const k = (nowMs - this.fadeStart) / 450;
+      if (k >= 1) this.fadeStart = -1;
+      else {
+        ctx.fillStyle = BG;
+        ctx.globalAlpha = 1 - k * k * (3 - 2 * k);
+        ctx.fillRect(0, 0, L.width, L.height);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  /** Keyboard cursor: a bright, softly breathing ring around the cell. */
+  private cursor(input: InputView, L: Layout, time: number): void {
+    const c = input.cursor ?? -1;
+    if (c < 0 || input.drag) return;
+    const ctx = this.ctx;
+    const s = L.cell;
+    const x = L.bx + (c % L.cols) * s;
+    const y = L.by + Math.floor(c / L.cols) * s;
+    ctx.save();
+    ctx.strokeStyle = accent(0.75 + 0.2 * Math.sin(time * 4));
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 1.5, y + 1.5, s - 3, s - 3, s * 0.16);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** The suggested step: a pulsing dashed outline plus a faint ghost of the result. */
@@ -246,11 +338,13 @@ export class Renderer {
       p.lineTo(L.bx + g.x2 * s, L.by + g.y2 * s);
     }
 
+    const shimmer = (solved ? 1.2 : 1) * (0.94 + 0.06 * Math.sin(time * 1.7));
+    this.bloom(paths, L, shimmer);
+
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    const shimmer = (solved ? 1.2 : 1) * (0.94 + 0.06 * Math.sin(time * 1.7));
     for (const [width, alpha] of BEAM_PASSES) {
       ctx.lineWidth = Math.max(1, s * width);
       for (const [color, path] of paths) {
@@ -277,9 +371,101 @@ export class Renderer {
     ctx.restore();
   }
 
-  private pieces(b: Board, t: Trace, L: Layout, time: number): void {
+  /**
+   * Bloom: stroke the beams thick into a quarter-resolution layer, then draw
+   * it back scaled up. Bilinear upscaling blurs it into a soft halo, which
+   * works everywhere (unlike canvas filters).
+   */
+  private bloom(paths: Map<Color, Path2D>, L: Layout, strength: number): void {
+    const g = this.glowCtx;
+    if (!g) return;
+    const k = 0.25;
+    const w = Math.max(1, Math.ceil(L.width * k));
+    const h = Math.max(1, Math.ceil(L.height * k));
+    if (this.glow.width !== w || this.glow.height !== h) {
+      this.glow.width = w;
+      this.glow.height = h;
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, w, h);
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.lineWidth = L.cell * 0.32;
+    for (const [color, path] of paths) {
+      g.strokeStyle = rgba(color, 0.32 * strength);
+      g.stroke(path);
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(this.glow, 0, 0, w, h, 0, 0, w / k, h / k);
+    ctx.globalAlpha = 0.6;
+    // A second, slightly enlarged pass widens the halo cheaply.
+    ctx.drawImage(this.glow, 0, 0, w, h, -L.cell * 0.15, -L.cell * 0.15, w / k + L.cell * 0.3, h / k + L.cell * 0.3);
+    ctx.restore();
+  }
+
+  /** Sparks drift from targets that receive light; more when the colour is right. */
+  private updateParticles(b: Board, t: Trace, dt: number): void {
+    const calm = reducedMotion();
+    for (const tg of t.targets) {
+      if (!tg.got) continue;
+      const rate = (tg.ok ? 7 : 2.5) * (calm ? 0.25 : 1);
+      let debt = (this.emitDebt.get(tg.cell) ?? 0) + rate * dt;
+      while (debt >= 1) {
+        debt -= 1;
+        const a = Math.random() * Math.PI * 2;
+        const v = 0.12 + Math.random() * 0.3;
+        this.particles.push({
+          x: (tg.cell % b.w) + 0.5 + Math.cos(a) * 0.22,
+          y: Math.floor(tg.cell / b.w) + 0.5 + Math.sin(a) * 0.22,
+          vx: Math.cos(a) * v,
+          vy: Math.sin(a) * v - 0.05,
+          life: 1.2 + Math.random() * 1.2,
+          age: 0,
+          color: tg.got,
+          size: 0.018 + Math.random() * 0.022,
+        });
+      }
+      this.emitDebt.set(tg.cell, debt);
+    }
+    for (const p of this.particles) {
+      p.age += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 1 - dt * 1.2;
+      p.vy *= 1 - dt * 1.2;
+    }
+    this.particles = this.particles.filter((p) => p.age < p.life && p.x > -1 && p.y > -1 && p.x < b.w + 1 && p.y < b.h + 1);
+    if (this.particles.length > 600) this.particles.splice(0, this.particles.length - 600);
+  }
+
+  private drawParticles(L: Layout): void {
+    if (!this.particles.length) return;
+    const ctx = this.ctx;
+    const s = L.cell;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of this.particles) {
+      const fade = Math.sin(Math.PI * Math.min(1, p.age / p.life));
+      ctx.fillStyle = rgba(p.color, 0.75 * fade);
+      ctx.beginPath();
+      ctx.arc(L.bx + p.x * s, L.by + p.y * s, Math.max(0.8, p.size * s), 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private pieces(b: Board, t: Trace, L: Layout, time: number, dt: number): void {
     const s = L.cell;
     const got = new Map(t.targets.map((x) => [x.cell, x]));
+    const calm = reducedMotion();
+    const ease = calm ? 1 : 1 - Math.exp(-dt * 16);
+    const next = new Map<number, { kind: string; angle: number }>();
     for (let i = 0; i < b.size; i++) {
       const p = b.cells[i];
       if (!p || p.kind === 'wall' || p.kind === 'glass') continue;
@@ -299,8 +485,17 @@ export class Renderer {
         const arr = arrivals(b, t, i).sort((a, c) => c.mask - a.mask);
         if (arr[0]) style.inDir = arr[0].dir;
       }
+      // Ease the displayed angle towards the real one along the shortest way,
+      // respecting each piece's symmetry (a mirror looks the same after 180°).
+      const real = p.kind === 'prism' ? (style.inDir ?? 0) * 45 : rotDegrees(p);
+      const period = p.kind === 'mirror' || p.kind === 'splitter' ? 180 : 360;
+      const prev = this.angles.get(i);
+      const angle = prev && prev.kind === p.kind ? prev.angle + angleDelta(prev.angle, real, period) * ease : real;
+      next.set(i, { kind: p.kind, angle });
+      style.angle = angle;
       drawPiece(this.ctx, p, cx, cy, s, style);
     }
+    this.angles = next;
   }
 
   /** Hover outline, drop target and long-press progress. */
@@ -426,19 +621,19 @@ function drawPiece(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: numb
   if (!style.tray) drawBase(ctx, p, cx, cy, s, style.positions ?? KINDS[p.kind].rotSteps);
   switch (p.kind) {
     case 'emitter':
-      drawEmitter(ctx, p, cx, cy, s);
+      drawEmitter(ctx, p, cx, cy, s, style.angle);
       break;
     case 'target':
       drawTarget(ctx, p, cx, cy, s, style.got ?? 0, style.ok ?? false, style.time);
       break;
     case 'mirror':
-      drawMirror(ctx, p, cx, cy, s);
+      drawMirror(ctx, p, cx, cy, s, style.angle);
       break;
     case 'splitter':
-      drawSplitter(ctx, p, cx, cy, s, style.lit ?? 0);
+      drawSplitter(ctx, p, cx, cy, s, style.lit ?? 0, style.angle);
       break;
     case 'prism':
-      drawPrism(ctx, p, cx, cy, s, style.lit ?? 0, style.inDir ?? 0);
+      drawPrism(ctx, p, cx, cy, s, style.lit ?? 0, style.angle ?? (style.inDir ?? 0) * 45);
       break;
     case 'filter':
       drawFilter(ctx, p, cx, cy, s, style.lit ?? 0);
@@ -527,11 +722,11 @@ function glow(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
   ctx.restore();
 }
 
-function drawEmitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number): void {
+function drawEmitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, angle = rotDegrees(p)): void {
   const r = s * 0.33;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(rotDegrees(p) * DEG);
+  ctx.rotate(angle * DEG);
   // Barrel pointing along the beam.
   ctx.fillStyle = '#232b3f';
   ctx.beginPath();
@@ -633,10 +828,10 @@ function drawTarget(
   }
 }
 
-function drawMirror(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number): void {
+function drawMirror(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, angle = rotDegrees(p)): void {
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(rotDegrees(p) * DEG);
+  ctx.rotate(angle * DEG);
   const half = s * 0.37;
   const thick = Math.max(2, s * 0.085);
   ctx.lineCap = 'round';
@@ -658,11 +853,11 @@ function drawMirror(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: num
   if (p.lock === 'fixed') drawPin(ctx, cx, cy, s);
 }
 
-function drawSplitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color): void {
+function drawSplitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color, angle = rotDegrees(p)): void {
   if (lit) glow(ctx, cx, cy, s * 0.42, lit, 0.3);
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(rotDegrees(p) * DEG);
+  ctx.rotate(angle * DEG);
   const half = s * 0.37;
   const thick = Math.max(3, s * 0.09);
   ctx.fillStyle = 'rgba(4,6,10,0.6)';
@@ -692,10 +887,10 @@ function drawSplitter(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: n
  * A wedge pointing along the incoming light. The edge on the side red leaves
  * by is red, the other blue, so flipping the prism visibly swaps them.
  */
-function drawPrism(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color, inDir: number): void {
+function drawPrism(ctx: CanvasRenderingContext2D, p: Piece, cx: number, cy: number, s: number, lit: Color, angleDeg: number): void {
   if (lit) glow(ctx, cx, cy, s * 0.5, lit, 0.32);
   const r = s * 0.34;
-  const a = inDir * 45 * DEG;
+  const a = angleDeg * DEG;
   const at = (deg: number) => [cx + Math.cos(a + deg * DEG) * r, cy + Math.sin(a + deg * DEG) * r] as const;
   const apex = at(0);
   const backLeft = at(-125); // counter-clockwise of travel = the traveller's left

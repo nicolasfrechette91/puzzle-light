@@ -10,8 +10,8 @@ unattended runs). Every milestone ends with a commit and a push.
 | 3 | Solver + CI level validation | **done** |
 | 4 | Content: 40+ levels, 5 worlds, par, solver hints | **done** |
 | 5 | Level editor, test-play, solver check, share via URL hash | **done** |
-| 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | next |
-| 7 | GitHub Pages deploy, README with GIF/screenshots | |
+| 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | **done** |
+| 7 | GitHub Pages deploy, README with GIF/screenshots | next |
 
 ## M1: delivered
 
@@ -92,6 +92,19 @@ All design decisions, with the policy used to make them, live in
 * My levels (localStorage), JSON import/export, auto-saved draft (D-034).
 * The editor is lazy-loaded (D-035). Its model is DOM-free and unit-tested
   (`tests/editor.test.ts`); share codes are tested in `tests/share.test.ts`.
+
+## M6: delivered
+
+* **Glow:** a bloom layer (D-037), particles at lit targets with a burst on
+  solve (D-038), rotation tweens (D-039) and a level fade-in, all reduced under
+  `prefers-reduced-motion`.
+* **Sound** (`src/game/audio.ts`, D-040): synthesised ambient, colour chimes
+  and small effects; toggle with the button or `M`.
+* **Level select** (`L` or the grid button) with per-world progress and par
+  marks. Worlds unlock after 6 solves (D-036); progress lives in localStorage
+  and the game resumes where you left off (D-041).
+* **Responsive toolbar** (D-042) and keyboard play (D-043).
+* Unlock and resume rules are tested in `tests/progress.test.ts`.
 
 ## Handoff notes
 
