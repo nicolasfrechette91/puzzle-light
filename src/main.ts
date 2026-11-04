@@ -1,10 +1,13 @@
 import './style.css';
+import { dailyNumber, formatTime, shareText, type DailyResult } from './core/daily';
 import type { LevelData } from './core/level';
 import { decodeLevel } from './core/share';
 import type { EditorUI } from './editor/editor-ui';
 import { Sound } from './game/audio';
+import { DailyStore, todayLocal, untilTomorrow } from './game/daily-store';
+import { GenClient } from './game/gen-client';
 import { Game } from './game/game';
-import { Hud } from './game/hud';
+import { Hud, type ModeHooks } from './game/hud';
 import { Input } from './game/input';
 import { computeLayout, type Layout } from './game/layout';
 import { LevelSelect } from './game/level-select';
@@ -53,7 +56,109 @@ new ResizeObserver(([entry]) => {
 
 let editor: EditorUI | null = null;
 let testLevel: LevelData | null = null;
-let mode: 'campaign' | 'shared' | 'test' | 'edit' = 'campaign';
+let mode: 'campaign' | 'shared' | 'test' | 'edit' | 'daily' | 'endless' = 'campaign';
+
+// ── daily puzzle (D-054) ──
+
+const daily = new DailyStore();
+const gen = new GenClient();
+
+interface DailySession {
+  date: string;
+  par: number;
+  moves: number;
+  progress: (0 | 1 | 2)[];
+  started: boolean;
+  /** Visible play time banked so far; the running stretch starts at `runningSince`. */
+  elapsed: number;
+  runningSince: number | null;
+  result: DailyResult | null;
+  copiedUntil: number;
+}
+let session: DailySession | null = null;
+/** Player actions that count as moves. */
+const MOVES = new Set(['rotate', 'place', 'move', 'pickUp', 'undo', 'redo', 'reset']);
+const elapsed = (s: DailySession) => s.elapsed + (s.runningSince !== null ? performance.now() - s.runningSince : 0);
+
+document.addEventListener('visibilitychange', () => {
+  const s = session;
+  if (!s || !s.started || s.result) return;
+  if (document.hidden) {
+    s.elapsed = elapsed(s);
+    s.runningSince = null;
+  } else s.runningSince = performance.now();
+});
+
+const prettyDate = (date: string) => {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+function dailyHooks(s: DailySession): ModeHooks {
+  return {
+    label: () => `Daily #${dailyNumber(s.date)} · ${prettyDate(s.date)}`,
+    status: () => {
+      const stored = daily.result(s.date);
+      if (stored && !s.result) return `Solved today in ${stored.moves} moves; replays don't change your result.`;
+      return s.started
+        ? `${s.moves} move${s.moves === 1 ? '' : 's'} · ${formatTime(elapsed(s))} · par ${s.par}`
+        : `Par ${s.par} moves. The clock starts with your first move.`;
+    },
+    solved: () => {
+      const r = daily.result(s.date) ?? s.result;
+      if (!r) return 'Solved';
+      const streak = daily.streak(s.date);
+      return `Solved · ${r.moves} moves (${r.moves <= r.par ? '✦ par' : `par ${r.par}`}) · ${formatTime(r.timeMs)}${streak > 1 ? ` · 🔥 ${streak}` : ''}`;
+    },
+    action: () => ({ label: Date.now() < s.copiedUntil ? 'Copied ✓' : 'Share result', run: () => void shareDaily(s) }),
+  };
+}
+
+async function shareDaily(s: DailySession): Promise<void> {
+  const r = daily.result(s.date) ?? s.result;
+  if (!r) return;
+  const text = shareText(r, daily.streak(s.date), `${location.origin}${location.pathname}#daily`);
+  if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+    try {
+      await navigator.share({ text });
+    } catch {
+      // cancelled
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    s.copiedUntil = Date.now() + 2000;
+    hud.refresh();
+    window.setTimeout(() => hud.refresh(), 2100);
+  } catch {
+    window.prompt('Copy your result:', text);
+  }
+}
+
+async function openDaily(): Promise<void> {
+  const date = todayLocal();
+  let cached = daily.cachedLevel(date);
+  if (!cached) {
+    hud.say('Preparing today’s puzzle…');
+    try {
+      const out = await gen.request({ kind: 'daily', date });
+      cached = { level: out.generated.level, movesPar: out.movesPar };
+      daily.cacheLevel(date, cached);
+    } catch (e) {
+      hud.say(`Today’s puzzle couldn’t be made: ${(e as Error).message}.`);
+      return;
+    }
+  }
+  if (location.hash !== '#daily') return; // the player went elsewhere meanwhile
+  session = { date, par: cached.movesPar, moves: 0, progress: [], started: false, elapsed: 0, runningSince: null, result: null, copiedUntil: 0 };
+  play('daily', [cached.level], 0, dailyHooks(session));
+}
+
+// The daily clock ticks in the status line.
+window.setInterval(() => {
+  if (mode === 'daily' && session?.started && !session.result && !playView.hidden) hud.refresh();
+}, 1000);
 let campaignIndex = game.index;
 
 // ── sound, effects and progress follow the game ──
@@ -90,6 +195,16 @@ game.on((e) => {
         if (game.hintShown) sound.hint();
         break;
     }
+    const s = session;
+    if (mode === 'daily' && s && !s.result && MOVES.has(game.lastAction)) {
+      if (!s.started) {
+        s.started = true;
+        s.runningSince = document.hidden ? null : performance.now();
+      }
+      s.moves++;
+      const lit = game.trace.targets.filter((t) => t.ok).length;
+      s.progress.push(lit === 0 ? 0 : lit === game.trace.targets.length ? 2 : 1);
+    }
     const ok = okNow();
     if (!game.solved) {
       let k = 0;
@@ -100,6 +215,14 @@ game.on((e) => {
   if (e === 'solved') {
     sound.solved(game.trace.targets.map((t) => t.want));
     renderer.celebrate(game.trace.targets, game.board.w);
+    if (mode === 'daily' && session && !session.result) {
+      const s = session;
+      s.elapsed = elapsed(s);
+      s.runningSince = null;
+      s.result = { date: s.date, moves: s.moves, par: s.par, timeMs: Math.round(s.elapsed), hints: game.hintsUsed, progress: s.progress };
+      daily.record(s.result); // the first completion of a date is the one that counts
+      hud.refresh();
+    }
     if (mode === 'campaign') {
       const before = unlockedWorlds(PACKS, progress.solved);
       progress.markSolved(game.level.id, game.piecesUsed, game.hintsUsed);
@@ -137,6 +260,24 @@ soundButton.addEventListener('click', () => {
   hud.refresh();
 });
 syncSoundButton();
+select.daily = () => {
+  const date = todayLocal();
+  const r = daily.result(date);
+  const streak = daily.streak(date);
+  return {
+    title: `Daily puzzle #${dailyNumber(date)}`,
+    status: r
+      ? `Solved in ${r.moves} moves (par ${r.par}) · ${formatTime(r.timeMs)} · next in ${untilTomorrow()}`
+      : `A new puzzle every day, the same for everyone${streak ? ` · 🔥 ${streak}` : ''}`,
+    solved: !!r,
+    streak,
+    best: daily.best,
+  };
+};
+select.onDaily = () => {
+  select.close();
+  location.hash = 'daily';
+};
 document.querySelector('#levels-edit')!.addEventListener('click', () => {
   select.close();
   location.hash = 'edit';
@@ -170,14 +311,14 @@ async function openEditor(level?: LevelData): Promise<void> {
   editor.open(level);
 }
 
-function play(kind: 'campaign' | 'shared' | 'test', levels: LevelData[], index = 0): void {
+function play(kind: 'campaign' | 'shared' | 'test' | 'daily' | 'endless', levels: LevelData[], index = 0, hooks: ModeHooks = {}): void {
   if (mode === 'campaign') campaignIndex = game.index;
   editor?.close();
   editView.hidden = true;
   playView.hidden = false;
   game.isOpen = kind === 'campaign' && devStart === null ? campaignOpen : () => true;
   if (kind !== mode || kind !== 'campaign') game.setLevels(levels, index);
-  hud.setMode(kind);
+  hud.setMode(kind, hooks);
   mode = kind;
 }
 
@@ -202,6 +343,8 @@ function route(): void {
     void openEditor(level);
   } else if (hash === 'test' && testLevel) {
     play('test', [testLevel]);
+  } else if (hash === 'daily') {
+    void openDaily();
   } else {
     play('campaign', ALL_LEVELS, campaignIndex);
   }
@@ -225,5 +368,5 @@ requestAnimationFrame(frame);
 
 // Dev-only handle for automated browser checks; stripped from production builds.
 if (import.meta.env.DEV) {
-  (window as unknown as Record<string, unknown>).__pl = { game, input, layout: () => layout, editor: () => editor, progress, sound, select };
+  (window as unknown as Record<string, unknown>).__pl = { game, input, layout: () => layout, editor: () => editor, progress, sound, select, daily, session: () => session };
 }

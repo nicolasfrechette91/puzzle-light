@@ -63,6 +63,19 @@ step at a time.
 | levels | grid button | grid button | `L` |
 | sound on/off | speaker | level select | `M` |
 
+## Daily puzzle
+
+Every day brings a new generated puzzle, the same for everyone (open the
+**Daily** card in the level select, or go to `#daily`). Your moves, time and
+streak are saved, and **Share result** copies a spoiler-free summary:
+
+```
+Puzzle Light · Daily #3
+⬛⬛🟨🟨⬛🟨🟨🟨
+🟩
+9 moves (par 5) · 1:23 · 🔥3
+```
+
 ## Level editor
 
 Open the editor with the pencil button, or go to `#edit`.

@@ -15,8 +15,8 @@ by a short summary with the new decision entries.
 | 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | **done** |
 | 7 | GitHub Pages deploy, README with GIF/screenshots | **done** |
 | 8 | Generator: seeded levels, unique, every piece matters, difficulty band | **done** |
-| 9 | Daily puzzle: date seed, streak, time, spoiler-free share | next |
-| 10 | Endless mode: easy / medium / hard | |
+| 9 | Daily puzzle: date seed, streak, time, spoiler-free share | **done** |
+| 10 | Endless mode: easy / medium / hard | next |
 | 11 | World 6 (8+ combination levels) + 5 expert bonus levels | |
 | 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | |
 
@@ -141,6 +141,21 @@ All design decisions, with the policy used to make them, live in
 * Solver is about 20% faster on boards without portals (D-053).
 * Tests: PRNG, exact band check, determinism, every acceptance rule
   re-verified by the solver, and a pinned golden level.
+
+## M9: delivered
+
+* `#daily` (also from the Daily card at the top of the level select): one
+  generated medium level per local date, the same for everyone (D-054).
+* Moves, par (fewest actions) and visible play time; the first completion
+  counts; streak and best streak (D-055, D-056).
+* **Share result**: an emoji journey plus moves vs par, time, hints and
+  streak, with no spoilers (D-057).
+* `src/core/daily.ts` (pure: dates, seed, par, streak rules, share text),
+  `src/game/generate.worker.ts` and `gen-client.ts`, `daily-store.ts`.
+* HUD per-mode hooks (label, status, solved text, action), reused by M10.
+* Tests: dates, determinism, the next 14 dailies are all valid, par counting,
+  streak rules and share text. The browser flow was checked across two days
+  with Playwright's clock.
 
 ## Open questions for the owner
 

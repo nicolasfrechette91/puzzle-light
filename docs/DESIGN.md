@@ -35,6 +35,7 @@ src/
     share.ts            level ⇄ URL share code (versioned base64url JSON)
     random.ts           seeded PRNG (mulberry32) + string → seed (FNV-1a)
     generate.ts         seeded procedural levels, verified by the solver
+    daily.ts            daily puzzle: date → seed, move par, streak rules, share text
   game/                 browser-only
     game.ts             controller: level, board, history, trace, win state
     layout.ts           responsive geometry + hit testing

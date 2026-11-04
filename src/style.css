@@ -279,6 +279,39 @@ body {
   padding: 0 16px 16px;
 }
 
+.mode-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(190, 210, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(190, 210, 255, 0.06);
+}
+
+.mode-card h3 {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mode-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.mode-card.done {
+  border-color: rgba(159, 232, 184, 0.4);
+}
+
+.mode-card .muted-line {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .world {
   padding: 12px 0 14px;
   border-top: 1px solid var(--line);

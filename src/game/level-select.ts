@@ -17,6 +17,9 @@ export class LevelSelect {
   private returnFocus: HTMLElement | null = null;
   /** Play campaign level `index` (the caller switches modes if needed). */
   onPick: (index: number) => void = () => {};
+  /** Today's daily puzzle, for the card at the top (null hides it). */
+  daily: () => { title: string; status: string; solved: boolean; streak: number; best: number } | null = () => null;
+  onDaily: () => void = () => {};
 
   constructor(game: Game, progress: Progress) {
     this.game = game;
@@ -54,7 +57,24 @@ export class LevelSelect {
     const open = unlockedWorlds(PACKS, this.progress.solved);
     const current = this.game.levels === undefined ? '' : this.game.level.id;
     let index = 0;
+    const cards: HTMLElement[] = [];
+    const d = this.daily();
+    if (d) {
+      const card = document.createElement('section');
+      card.className = `mode-card${d.solved ? ' done' : ''}`;
+      const text = document.createElement('div');
+      text.append(
+        Object.assign(document.createElement('h3'), { textContent: d.title }),
+        Object.assign(document.createElement('p'), { textContent: d.status }),
+      );
+      if (d.best > 1) text.append(Object.assign(document.createElement('p'), { className: 'muted-line', textContent: `Best streak ${d.best}` }));
+      const play = Object.assign(document.createElement('button'), { type: 'button', className: 'pill', textContent: d.solved ? 'Replay' : 'Play' });
+      play.addEventListener('click', () => this.onDaily());
+      card.append(text, play);
+      cards.push(card);
+    }
     this.body.replaceChildren(
+      ...cards,
       ...PACKS.map((pack, w) => {
         const section = document.createElement('section');
         section.className = 'world';

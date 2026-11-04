@@ -398,3 +398,41 @@ Process:
 * **Question:** Profiling showed `portalPartners` taking 14% of solver time, rebuilt on every trace.
 * **Choice:** Boards without portals share one read-only "unpaired" array, the pairing uses fixed arrays instead of a Map, and the solver skips its portal-twin rule when the level has no portals at all. Results are unchanged: the same state counts, and the brute-force cross-check passes.
 * **Reason:** About 20% faster solving, which makes in-browser generation and hints cheaper.
+
+### D-054 · Daily puzzle: date, seed and tier (M9, by: claude)
+* **Question:** What makes the daily "one level per day, the same for everyone"?
+* **Options:** A UTC date (everyone switches at the same instant, mid-day for many players); the local calendar date (as Wordle does).
+* **Choice:**
+  * **Date:** the player's local calendar date. Puzzle #1 is 2026-11-04.
+  * **Seed:** `FNV-1a("puzzle-light/daily/v<GENERATOR_VERSION>/<date>")` (D-050).
+  * **Tier:** medium every day (about 70 ms median to generate), built in a Web Worker and cached in localStorage per date and generator version.
+  * **Streak:** counts consecutive dates; it lapses after a missed day, and the best streak is kept.
+* **Reason:** "Today's puzzle" matches each player's own today, and everyone shares the same puzzle per date. Medium is fast to generate and fair for a daily habit.
+
+### D-055 · Daily moves, par and result (M9, by: claude)
+* **Question:** What do "moves" and "par" mean, and which play counts?
+* **Choice:**
+  * **Moves:** every board action counts: one placement, move or return, one rotation step, one undo, redo or reset. Hints are not moves, but they're counted and shown (💡).
+  * **Par:** the fewest actions that solve it. Each tray piece placed, plus the shortest turn to its orientation, plus the shortest turn for each rotate-only piece (`movesPar`).
+  * **Which play counts:** only the first completion of a date. Replays are allowed and say so, but don't change the result or streak.
+* **Reason:** Easy to explain and countable without hidden rules (policy 1); par is computed from the solver's unique solution (policy 2).
+
+### D-056 · Daily timer (M9, by: claude)
+* **Question:** When does the completion time start, and what does it include?
+* **Choice:** It starts with the first move, not when the page opens, and only time with the tab visible counts. It stops on solve.
+* **Reason:** Reading the board before moving shouldn't feel rushed (calm), and a background tab shouldn't count.
+
+### D-057 · Spoiler-free share (M9, by: claude)
+* **Question:** What goes in the shared result?
+* **Choice:**
+  ```
+  Puzzle Light · Daily #3
+  ⬛⬛🟨🟨⬛🟨🟨🟨
+  🟩
+  9 moves (par 5) · 1:23 · 💡1 · 🔥3
+  <link to #daily>
+  ```
+  * One square per move shows how many targets were lit after it: none, some or all. Rows of 8, capped at 40 squares.
+  * Meeting par shows `✦ par`.
+  * The native share sheet is used on touch devices, the clipboard elsewhere (the button confirms "Copied ✓").
+* **Reason:** Like Wordle, it shows the journey and never the answer: nothing about positions or pieces.
