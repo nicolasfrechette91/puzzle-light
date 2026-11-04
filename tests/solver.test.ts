@@ -5,7 +5,7 @@ import { canMove, canRotate } from '../src/core/piece';
 import { isActive, solve } from '../src/core/solver';
 import { formatToken } from '../src/core/token';
 import { arrivals, trace } from '../src/core/trace';
-import { ALL_LEVELS } from '../src/levels';
+import { SAMPLES } from './fixtures';
 import { board, rng } from './helpers';
 import { SOLUTIONS } from './solutions';
 
@@ -225,7 +225,7 @@ describe('solve agrees with brute force', () => {
 });
 
 describe('sample levels', () => {
-  for (const lv of ALL_LEVELS) {
+  for (const lv of SAMPLES) {
     const expected = SOLUTIONS[lv.id];
     if (!expected) continue;
     it(`${lv.id} has exactly the designed solution`, () => {

@@ -1,6 +1,8 @@
 import type { Board } from '../core/board';
+import { nextHint, type Hint } from '../core/hint';
 import { History } from '../core/history';
 import { parseLevel, type LevelData } from '../core/level';
+import { solve, type Solution } from '../core/solver';
 import { trace, type Trace } from '../core/trace';
 
 export type GameEvent =
@@ -25,8 +27,14 @@ export class Game {
   solved = false;
   /** Level ids solved this session (persisted in M6). */
   readonly completed = new Set<string>();
+  /** The hint currently on display; cleared by any board change. */
+  hintShown: Hint | null = null;
+  /** Hints asked for on this level. */
+  hintsUsed = 0;
 
   private history!: History<Board>;
+  private start!: Board;
+  private solutions: Solution[] | null = null;
   private listeners = new Set<(e: GameEvent) => void>();
 
   constructor(levels: LevelData[], start = 0) {
@@ -48,6 +56,10 @@ export class Game {
     this.index = Math.max(0, Math.min(this.levels.length - 1, index));
     this.level = this.levels[this.index]!;
     const b = parseLevel(this.level);
+    this.start = b.clone();
+    this.solutions = null;
+    this.hintShown = null;
+    this.hintsUsed = 0;
     this.history = new History(b, (s) => s.key());
     this.solved = false;
     this.setBoard(b.clone(), false);
@@ -115,6 +127,19 @@ export class Game {
     if (this.history.push(fresh)) this.setBoard(fresh.clone(), true);
   }
 
+  /**
+   * Show the next step towards the nearest solution. The level is solved once,
+   * lazily, the first time a hint is asked for.
+   */
+  hint(): Hint | null {
+    if (this.solved) return null;
+    this.solutions ??= solve(this.start, { maxNodes: 2_000_000, maxSolutions: 50 }).solutions;
+    this.hintShown = nextHint(this.start, this.board, this.solutions);
+    if (this.hintShown) this.hintsUsed++;
+    this.emit('change');
+    return this.hintShown;
+  }
+
   next(): void {
     if (this.hasNext) this.load(this.index + 1);
   }
@@ -125,6 +150,7 @@ export class Game {
 
   private setBoard(b: Board, announce: boolean): void {
     this.board = b;
+    this.hintShown = null;
     this.trace = trace(b);
     const was = this.solved;
     this.solved = this.trace.solved;

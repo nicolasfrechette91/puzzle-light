@@ -1,0 +1,130 @@
+{
+  "id": "w5",
+  "name": "Wormholes",
+  "blurb": "Portals fold the board: light leaves one and arrives at its twin.",
+  "levels": [
+    {
+      "id": "5-1",
+      "name": "Shortcut",
+      "note": "Light entering a portal leaves its twin, still heading the same way.",
+      "grid": [
+        ".   .   .   #   .   Tr  .",
+        "Er0 .   O1  #   .   .   .",
+        ".   .   .   #   .   .   .",
+        ".   .   .   #   O1  .   .",
+        ".   .   .   #   .   .   ."
+      ],
+      "inv": {
+        "M": 1
+      }
+    },
+    {
+      "id": "5-2",
+      "name": "Other Side",
+      "note": "Place the twin portal where the light should come out.",
+      "grid": [
+        ".   .   .   #   .   .   .",
+        "Er0 .   O1  #   .   .   .",
+        ".   .   .   #   .   .   .",
+        ".   .   .   #   G   .   Tr",
+        ".   .   .   #   .   .   ."
+      ],
+      "inv": {
+        "O1": 1
+      }
+    },
+    {
+      "id": "5-3",
+      "name": "Two Rooms",
+      "grid": [
+        ".   .   .   #   .   .   .",
+        "Er0 M0~ .   #   .   .   Tr",
+        ".   .   .   #   .   .   .",
+        ".   M0~ O1  #   .   .   .",
+        ".   .   .   #   O1  .   M0~"
+      ]
+    },
+    {
+      "id": "5-4",
+      "name": "Fold",
+      "grid": [
+        ".   .   .   #   .   .   .",
+        "Er0 .   O1  #   O1  G   Tr",
+        ".   .   .   #   .   .   .",
+        ".   .   .   #   .   .   .",
+        ".   .   O2  #   O2  .   Tr"
+      ],
+      "inv": {
+        "S": 1,
+        "M": 1
+      }
+    },
+    {
+      "id": "5-5",
+      "name": "Constellation",
+      "note": "Every colour takes its own way through space.",
+      "grid": [
+        ".   .   .   .   #   .   .   .",
+        ".   .   .   O1  #   .   .   .",
+        ".   .   .   .   #   O2  .   Tr",
+        "Ew0 .   .   .   #   .   .   .",
+        ".   .   .   .   #   O1  .   Tb",
+        ".   .   .   O2  #   .   .   .",
+        "Tg  .   .   .   #   .   .   ."
+      ],
+      "inv": {
+        "P": 1,
+        "M": 1
+      }
+    },
+    {
+      "id": "5-6",
+      "name": "Scattered",
+      "grid": [
+        "Ew2 .   #   .   .   .   .",
+        ".   .   #   .   .   .   Tr",
+        ".   .   #   .   .   .   .",
+        ".   .   #   O1  .   .   Tg",
+        ".   .   #   .   .   .   .",
+        ".   O1  #   .   .   .   Tb",
+        ".   .   #   .   .   .   ."
+      ],
+      "inv": {
+        "M": 1,
+        "P": 1
+      }
+    },
+    {
+      "id": "5-7",
+      "name": "Relay",
+      "grid": [
+        ".   .   #   .   .   #   .   .",
+        "Er0 O1  #   .   .   #   .   .",
+        ".   .   #   .   .   #   O2  .",
+        ".   .   #   O1  .   #   .   .",
+        ".   .   #   .   .   #   .   .",
+        ".   .   #   .   .   #   G   .",
+        ".   .   #   .   O2  #   .   Tr"
+      ],
+      "inv": {
+        "M": 3
+      },
+      "par": 2
+    },
+    {
+      "id": "5-8",
+      "name": "Return Trip",
+      "note": "Portals work in both directions.",
+      "grid": [
+        ".   .   .   #   .   .   .",
+        "Er0 G   O1  #   .   .   .",
+        "#   #   .   #   G   .   .",
+        ".   .   .   #   O1  .   .",
+        ".   Tr  G   #   .   .   ."
+      ],
+      "inv": {
+        "M": 3
+      }
+    }
+  ]
+}

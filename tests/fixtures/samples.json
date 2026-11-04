@@ -1,0 +1,190 @@
+[
+  {
+    "id": "t-01",
+    "name": "First Light",
+    "note": "Tap the ringed mirror to turn it. Guide the beam into the ring.",
+    "grid": [
+      ".   .   .   Tr  .   .",
+      ".   .   .   .   .   .",
+      "Er0 .   .   M4~ .   .",
+      ".   .   .   .   .   ."
+    ]
+  },
+  {
+    "id": "t-02",
+    "name": "Placement",
+    "note": "Drag a mirror from the tray onto the beam, then tap it to turn it.",
+    "grid": [
+      ".   .   .   .   .   .   .",
+      "Er0 .   .   .   .   .   #",
+      ".   .   .   .   .   .   .",
+      ".   .   .   .   .   .   Tr",
+      ".   .   .   .   .   .   ."
+    ],
+    "inv": {
+      "M": 1
+    },
+    "par": 1
+  },
+  {
+    "id": "t-03",
+    "name": "Around the Wall",
+    "note": "Light travels diagonally too.",
+    "grid": [
+      ".   .   .   .   .   .   .",
+      "Er0 .   .   #   .   .   Tr",
+      ".   .   .   #   .   .   .",
+      ".   .   .   .   .   .   .",
+      ".   .   .   .   .   .   .",
+      ".   .   .   .   .   .   ."
+    ],
+    "inv": {
+      "M": 2
+    },
+    "par": 2
+  },
+  {
+    "id": "t-04",
+    "name": "Fixed Points",
+    "note": "Plain mirrors are fixed. A mirror on a tile can be dragged anywhere.",
+    "grid": [
+      ".   .   .   .   .   .   .",
+      "Er0 .   M4* .   .   .   M2",
+      ".   .   .   .   .   .   .",
+      ".   .   .   #   .   .   .",
+      ".   .   .   .   .   #   .",
+      ".   .   .   #   .   .   M6",
+      ".   .   .   Tr  .   .   ."
+    ]
+  },
+  {
+    "id": "t-05",
+    "name": "Crossing",
+    "note": "Beams pass through each other.",
+    "grid": [
+      ".   .   .   .   .   .   .",
+      "Er0 .   .   .   .   .   Tb",
+      ".   .   .   #   .   .   .",
+      "Eb0 .   .   .   .   .   Tr",
+      ".   .   .   .   .   .   ."
+    ],
+    "inv": {
+      "M": 2
+    },
+    "par": 2
+  },
+  {
+    "id": "t-06",
+    "name": "Warm Light",
+    "note": "Red and green light add up to yellow.",
+    "grid": [
+      ".   .   .   .   .   .",
+      "Er0 .   .   .   #   .",
+      ".   .   .   .   .   .",
+      ".   .   .   .   .   Ty",
+      ".   .   .   .   .   .",
+      "Eg0 .   .   .   #   ."
+    ],
+    "inv": {
+      "M": 2
+    },
+    "par": 2
+  },
+  {
+    "id": "o-01",
+    "name": "Half Light",
+    "note": "A splitter reflects light and lets it through at the same time.",
+    "grid": [
+      ".   .   .   .   .   .   .",
+      "Er0 .   .   .   .   .   Tr",
+      ".   .   .   .   .   .   .",
+      ".   .   .   .   .   .   .",
+      ".   .   .   Tr  .   .   ."
+    ],
+    "inv": {
+      "S": 1
+    },
+    "par": 1
+  },
+  {
+    "id": "o-02",
+    "name": "Spectrum",
+    "note": "A prism fans white light out: red bends left, blue bends right.",
+    "grid": [
+      ".   .   .   .   .   Tr  .",
+      ".   .   .   .   .   .   .",
+      "Ew0 .   .   .   .   .   Tg",
+      ".   .   .   .   .   .   .",
+      ".   .   .   .   .   Tb  ."
+    ],
+    "inv": {
+      "P": 1
+    },
+    "par": 1
+  },
+  {
+    "id": "o-03",
+    "name": "Stained Glass",
+    "note": "Filters pass only their own colour. Nothing can be placed on glass.",
+    "grid": [
+      ".   .   .   .   .   .   .",
+      "Ew0 .   .   S2  .   G   Tr",
+      ".   .   .   .   .   .   .",
+      ".   .   .   G   .   .   .",
+      ".   .   .   Tb  .   .   ."
+    ],
+    "inv": {
+      "Fr": 1,
+      "Fb": 1
+    },
+    "par": 2
+  },
+  {
+    "id": "o-04",
+    "name": "Event Horizon",
+    "note": "A black hole swallows any light that falls in.",
+    "grid": [
+      ".   .   .   Eb2 .   .   .",
+      ".   .   .   .   .   .   .",
+      "Er0 .   .   S2  .   .   Tr",
+      ".   .   .   .   .   .   .",
+      ".   .   .   Tr  .   .   ."
+    ],
+    "inv": {
+      "X": 1
+    },
+    "par": 1
+  },
+  {
+    "id": "o-05",
+    "name": "Wormhole",
+    "note": "Light entering a portal leaves its twin, still heading the same way.",
+    "grid": [
+      ".   .   .   #   .   Tr  .",
+      "Er0 .   O1  #   .   .   .",
+      ".   .   .   #   .   .   .",
+      ".   .   .   #   O1  .   .",
+      ".   .   .   #   .   .   ."
+    ],
+    "inv": {
+      "M": 1
+    },
+    "par": 1
+  },
+  {
+    "id": "o-06",
+    "name": "Recombine",
+    "note": "Bring red and blue back together to make magenta.",
+    "grid": [
+      ".   .   .   .   .   G   .",
+      ".   .   .   .   .   .   Tm",
+      ".   .   .   .   .   .   .",
+      "Ew0 .   P   .   .   .   Tg",
+      ".   .   .   .   .   .   ."
+    ],
+    "inv": {
+      "M": 2
+    },
+    "par": 2
+  }
+]

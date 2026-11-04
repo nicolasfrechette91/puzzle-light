@@ -1,0 +1,145 @@
+{
+  "id": "w1",
+  "name": "Reflection",
+  "blurb": "Mirrors turn light by a right angle.",
+  "levels": [
+    {
+      "id": "1-1",
+      "name": "First Light",
+      "note": "Tap the ringed mirror to turn it. Guide the light into the ring.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   Tr  .",
+        ".   .   .   .   .",
+        "Er0 .   .   M2~ .",
+        ".   .   .   .   ."
+      ]
+    },
+    {
+      "id": "1-2",
+      "name": "Two Turns",
+      "note": "Right-click, or press and hold, to turn a mirror the other way.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   .",
+        "Er0 .   .   M0~ .   .",
+        ".   .   .   .   .   .",
+        ".   .   .   .   .   .",
+        ".   Tr  .   M0~ .   ."
+      ]
+    },
+    {
+      "id": "1-3",
+      "name": "Placement",
+      "note": "Drag a mirror from the tray onto the beam, then tap it to turn it.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   .",
+        "Er0 .   .   .   .   #",
+        ".   .   .   .   .   .",
+        ".   .   .   .   .   .",
+        ".   .   .   .   Tr  ."
+      ],
+      "inv": {
+        "M": 1
+      }
+    },
+    {
+      "id": "1-4",
+      "name": "Around the Wall",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   #   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   #   .   .   .   .   .",
+        ".   .   .   .   .   .   Tr"
+      ],
+      "inv": {
+        "M": 2
+      }
+    },
+    {
+      "id": "1-5",
+      "name": "Fixed Points",
+      "note": "Mirrors without a ring are fixed. A mirror on a tile can be dragged anywhere.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   M2",
+        ".   #   .   .   .   .   .",
+        ".   Tr  .   .   #   .   .",
+        ".   .   .   .   .   #   .",
+        ".   .   .   .   .   .   M6",
+        ".   .   M0* .   .   .   ."
+      ]
+    },
+    {
+      "id": "1-6",
+      "name": "Warm Light",
+      "note": "Red and green light add up to yellow.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   Eg2 .   .   .",
+        ".   .   .   .   .   #   .",
+        "Er0 .   .   .   .   .   Ty",
+        ".   .   .   .   .   #   .",
+        ".   .   .   .   .   .   ."
+      ],
+      "inv": {
+        "M": 2
+      }
+    },
+    {
+      "id": "1-7",
+      "name": "Detour",
+      "bends": 90,
+      "grid": [
+        ".   #   .   .   .   .   .",
+        "Er0 .   #   .   .   .   .",
+        ".   .   .   .   .   #   .",
+        ".   .   #   .   .   #   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   #   .   ."
+      ],
+      "inv": {
+        "M": 3
+      }
+    },
+    {
+      "id": "1-8",
+      "name": "Both Sides",
+      "note": "Both faces of a mirror reflect.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   Tb  .",
+        ".   .   .   .   .   #   .",
+        ".   #   .   .   .   .   .",
+        "Er0 .   .   M0~ .   .   Eb4",
+        ".   #   .   .   .   #   .",
+        ".   Tr  .   .   .   .   ."
+      ],
+      "inv": {
+        "M": 2
+      }
+    },
+    {
+      "id": "1-9",
+      "name": "Crossing",
+      "note": "Beams pass straight through each other.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   Eb2 .   .",
+        ".   .   .   .   .   .",
+        "Er0 .   .   .   .   .",
+        ".   .   .   .   .   .",
+        ".   .   .   .   .   Tb",
+        ".   .   .   .   Tr  ."
+      ],
+      "inv": {
+        "M": 3
+      },
+      "par": 2
+    }
+  ]
+}

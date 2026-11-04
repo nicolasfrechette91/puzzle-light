@@ -164,3 +164,51 @@ Process:
 * **Options:** Keep `tests/solutions.ts` for every level; only for the 12 samples.
 * **Choice:** Only the samples (as regression checks on the solver). M4 levels are verified by `npm run levels` in CI.
 * **Reason:** One source of truth that scales to 40+ levels (policy 3).
+
+### D-023 · Five worlds for seven pieces (M4, by: reviewer)
+* **Question:** Seven piece types plus the 45° unlock, but only 5 worlds. Which world introduces two things?
+* **Options:**
+  * A: 1 mirror · 2 splitter + 45° · 3 filter · 4 prism · 5 portal + late black hole.
+  * B: 1 mirror · 2 diagonals · 3 splitter · 4 filter + prism · 5 portal + black hole.
+  * C: 1 mirror · 2 splitter + 45° · 3 filter + black hole · 4 prism · 5 portal.
+* **Choice:** C.
+  * World 2 opens with 45° bends using plain mirrors; splitters follow in 90° layouts, then on diagonals.
+  * World 3 teaches filters (with glass alongside), then the black hole from level 4.
+* **Reason:** Policy 1. Filters and black holes share one visible idea, "this piece removes light", so only one world doubles up, and its two pieces explain each other.
+
+### D-024 · What par means (M4, by: claude)
+* **Question:** Par needs a level where you can use more pieces than necessary, which conflicts with unique solutions. How do they coexist?
+* **Options:** No par at all; par on every level; par on chosen levels, with the fewest-piece solution unique.
+* **Choice:** About one par level per world: 1-9, 2-8, 3-7, 4-5, 5-7. On those, longer solutions are allowed, but the fewest-piece solution must be unique and par equals the solver's minimum. The level check warns when a par level has no longer solutions (par would be meaningless).
+* **Reason:** Policy 2 keeps the "ideally unique" spirit where it matters; par stays an optional challenge.
+
+### D-025 · Level order within a world (M4, by: claude)
+* **Question:** How are levels ordered inside a world (D-010)?
+* **Options:** Pure difficulty score; teaching order; teaching levels first, then by score.
+* **Choice:** The levels that introduce something new stay first. The rest are sorted by solver difficulty, and `npm run levels` flags large drops.
+* **Reason:** Teaching beats are about clarity (policy 1); after that, the score is the most objective ordering available.
+
+### D-026 · Sample levels become test fixtures (M4, by: claude)
+* **Question:** What happens to the 12 M1/M2 sample levels?
+* **Options:** Keep them in the game; delete them; move them to tests.
+* **Choice:** Move them to `tests/fixtures/samples.json`, where they remain solver and hint regression cases.
+* **Reason:** They were placeholders. Some use 45° bends early, which world 1 now forbids (D-001); as fixtures they still have value.
+
+### D-027 · How levels were made unique (M4, by: claude)
+* **Question:** Hand-designed boards often have unintended shortcuts. How are they removed?
+* **Options:** Hand-iterate only; generate levels automatically; hand-design, then use a search that suggests the fewest blockers to add.
+* **Choice:** Every level is drawn by hand around an intended idea and route. A scratch search then proposes the fewest walls or glass panes that remove the alternatives, and I pick among its suggestions. Crossing beams are used where possible: a filter or hole placed where another beam crosses would spoil that beam, which pins positions without clutter (e.g. 3-6 Crossfire).
+* **Reason:** Hand-designed, as asked, while still meeting policy 2. Glass doubles as a visible "no building here".
+
+### D-028 · Hints (M4, by: claude)
+* **Question:** How do solver-powered hints work?
+* **Choice:**
+  * The level is solved lazily on the first hint request.
+  * The hint picks the solution closest to the current board and shows its next unmet step, in the order light reaches the steps: place, move, turn, or remove a piece that's in the way.
+  * It is drawn as a pulsing dashed outline plus a faint ghost of the result, with one line of text. Hints are counted per level.
+* **Reason:** One step at a time keeps the puzzle the player's own, and following the beam matches how players think (policy 1).
+
+### D-029 · HUD names the world (M4, by: claude)
+* **Question:** What does the level counter show?
+* **Choice:** "World · n" (e.g. "Reflection · 3"). Four levels that shared their world's name were renamed.
+* **Reason:** Players see where they are in the progression; the full level select comes in M6.

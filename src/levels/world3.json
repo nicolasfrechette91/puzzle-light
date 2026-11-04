@@ -1,0 +1,136 @@
+{
+  "id": "w3",
+  "name": "Absorption",
+  "blurb": "Filters keep one colour; black holes keep nothing.",
+  "levels": [
+    {
+      "id": "3-1",
+      "name": "Tint",
+      "note": "A filter passes only its own colour. Nothing can be placed on glass.",
+      "grid": [
+        ".   .   .   .",
+        "Ew0 G   .   Tr",
+        ".   .   .   ."
+      ],
+      "inv": {
+        "Fr": 1
+      }
+    },
+    {
+      "id": "3-2",
+      "name": "In Order",
+      "note": "Filters stack: yellow through cyan leaves only green.",
+      "grid": [
+        ".   .   .   .   .   .",
+        "Ew0 .   S2  .   Tg  .",
+        ".   .   .   .   .   .",
+        ".   .   Ty  .   .   ."
+      ],
+      "inv": {
+        "Fy": 1,
+        "Fc": 1
+      }
+    },
+    {
+      "id": "3-3",
+      "name": "Stained Glass",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Ew0 .   .   S2  .   G   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   .   G   .   .   .",
+        ".   .   .   Tb  .   .   ."
+      ],
+      "inv": {
+        "Fr": 1,
+        "Fb": 1,
+        "Fg": 1
+      }
+    },
+    {
+      "id": "3-4",
+      "name": "Event Horizon",
+      "note": "A black hole swallows any light that falls in.",
+      "grid": [
+        ".   .   .   Eb2 .   .   .",
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   S2  .   .   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Tr  .   .   ."
+      ],
+      "inv": {
+        "X": 1
+      }
+    },
+    {
+      "id": "3-5",
+      "name": "Stray",
+      "note": "Stop the stray beam without blocking the others.",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   S2  .   .   Tr",
+        ".   .   .   G   .   .   .",
+        "Eg0 .   .   .   .   .   Tg",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Tb  .   .   Eb4"
+      ],
+      "inv": {
+        "X": 1
+      }
+    },
+    {
+      "id": "3-6",
+      "name": "Crossfire",
+      "grid": [
+        ".   .   .   .",
+        "Ew0 S2  .   Tr",
+        "Eb0 .   .   Tb",
+        ".   .   .   .",
+        "Eb0 .   .   Tb",
+        ".   Tg  .   Eg4"
+      ],
+      "inv": {
+        "Fr": 1,
+        "X": 1
+      }
+    },
+    {
+      "id": "3-7",
+      "name": "Filtered Fork",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Ew0 .   .   .   G   .   Tg",
+        ".   .   .   G   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Tr  .   .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "Fr": 1,
+        "Fg": 1,
+        "M": 1
+      },
+      "par": 3
+    },
+    {
+      "id": "3-8",
+      "name": "Secondaries",
+      "note": "Three secondary colours from one white beam.",
+      "grid": [
+        ".   .   .   .   .   .",
+        "Ew0 .   .   S2  .   Ty",
+        ".   .   .   .   .   .",
+        ".   .   .   .   G   .",
+        ".   .   .   .   .   Tc",
+        ".   .   .   .   .   .",
+        ".   .   .   Tm  .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "Fy": 1,
+        "Fc": 1,
+        "Fm": 1
+      }
+    }
+  ]
+}

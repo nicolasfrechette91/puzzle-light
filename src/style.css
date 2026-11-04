@@ -132,6 +132,10 @@ body {
   color: var(--muted);
 }
 
+.status p.hinting {
+  color: var(--accent);
+}
+
 #solved {
   display: flex;
   align-items: center;

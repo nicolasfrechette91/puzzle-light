@@ -70,7 +70,7 @@ function check(level: LevelData, limitMs: number): Row {
   if (trace(board).solved) row.errors.push('is already solved at the start');
 
   const t0 = performance.now();
-  const r: SolveResult = solve(board, { deadline: t0 + limitMs, now: () => performance.now(), maxSolutions: 3 });
+  const r: SolveResult = solve(board, { deadline: t0 + limitMs, now: () => performance.now(), maxSolutions: Infinity });
   row.ms = String(Math.round(performance.now() - t0));
   row.states = String(r.nodes);
   row.solutions = r.complete ? String(r.count) : `≥${r.count}`;
@@ -85,13 +85,16 @@ function check(level: LevelData, limitMs: number): Row {
   }
   row.min = String(r.minPieces);
   row.difficulty = r.difficulty.toFixed(1);
-  if (r.count > 1) {
-    const alt = r.solutions
+  // A par level may have longer solutions; it is the par-length one that should be unique.
+  const relevant = level.par === undefined ? r.solutions : r.solutions.filter((s) => s.pieces === r.minPieces);
+  if (relevant.length > 1) {
+    const alt = relevant
       .slice(0, 3)
       .map((s) => s.moves.join(' '))
       .join(' | ');
-    row.warnings.push(`${r.count} solutions: ${alt}`);
+    row.warnings.push(`${relevant.length} ${level.par === undefined ? '' : 'fewest-piece '}solutions: ${alt}`);
   }
+  if (level.par !== undefined && r.count === 1) row.warnings.push('par set but every solution uses the same pieces');
   if (level.par !== undefined) {
     if (level.par < r.minPieces) row.errors.push(`par ${level.par} is impossible: needs at least ${r.minPieces}`);
     else if (level.par > r.minPieces) row.warnings.push(`par ${level.par} is generous: ${r.minPieces} is enough`);
@@ -110,7 +113,7 @@ function main(): void {
   let checked = 0;
   const cols: [keyof Row, string, number][] = [
     ['id', 'id', 7],
-    ['name', 'name', 18],
+    ['name', 'name', 16],
     ['solutions', 'sols', 5],
     ['min', 'min', 4],
     ['par', 'par', 4],

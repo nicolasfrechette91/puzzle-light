@@ -8,8 +8,8 @@ unattended runs). Every milestone ends with a commit and a push.
 | 1 | Core engine: grid, 8-dir tracing, emitters/targets/walls/mirrors, rotate, drag & drop, win, undo/redo/reset, JSON levels | **done** |
 | 2 | Optics: additive mixing, prisms, splitters, filters, glass, black holes, portals | **done** |
 | 3 | Solver + CI level validation | **done** |
-| 4 | Content: 40+ levels, 5 worlds, par, solver hints | next |
-| 5 | Level editor, test-play, solver check, share via URL hash | |
+| 4 | Content: 40+ levels, 5 worlds, par, solver hints | **done** |
+| 5 | Level editor, test-play, solver check, share via URL hash | next |
 | 6 | Polish: glow/bloom, particles, rotation tweens, generative audio, level select + progress | |
 | 7 | GitHub Pages deploy, README with GIF/screenshots | |
 
@@ -62,6 +62,22 @@ All design decisions, with the policy used to make them, live in
 * **CI** (`.github/workflows/ci.yml`): tests, typecheck + build, level check.
 * **Tests:** 110, including the solver checked against brute force on 150
   random levels (D-021).
+
+## M4: delivered
+
+* 42 levels in `src/levels/world1..5.json` (D-023):
+  * Reflection (9): mirrors, 90° only.
+  * Division (9): 45° bends, splitters.
+  * Absorption (8): filters, glass, black holes.
+  * Spectrum (8): prisms.
+  * Wormholes (8): portals.
+* Every level passes `npm run levels`. Non-par levels have exactly one
+  solution; par levels have exactly one fewest-piece solution (D-024).
+* Levels are ordered by teaching beats, then by solver difficulty (D-025).
+* Hints (`src/core/hint.ts`, D-028): lightbulb button or `H`. Following hints
+  alone solves every level checked in the browser.
+* World 1 is enforced as `bends: 90` by a test; sample levels moved to
+  `tests/fixtures` (D-026).
 
 ## Handoff notes
 

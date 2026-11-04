@@ -46,9 +46,17 @@ export interface SolveOptions {
   now?: () => number;
 }
 
+/** One piece of a solution: what ends up on which cell. */
+export interface Placement {
+  cell: number;
+  piece: Piece;
+}
+
 export interface Solution {
   /** Final state of every active player-controlled piece, as `token@x,y`, in cell order. */
   moves: string[];
+  /** The same, structured. Free pieces have lock `free`; rotate-only pieces keep `rotate`. */
+  placements: Placement[];
   /** Free (tray/movable) pieces used. */
   pieces: number;
   /** Player decisions: pieces used plus rotate-only pieces turned away from their start. */
@@ -146,6 +154,7 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
 
   const record = (t: Trace): void => {
     const moves: string[] = [];
+    const placements: Placement[] = [];
     let pieces = 0;
     let decisions = 0;
     for (let i = 0; i < work.size; i++) {
@@ -156,6 +165,7 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
       const active = p.kind === 'portal' ? t.lit[i] !== 0 : isActive(p, arrivals(work, t, i));
       if (!active) continue;
       moves.push(`${formatToken(p)}@${i % work.w},${(i / work.w) | 0}`);
+      placements.push({ cell: i, piece: { ...p } });
       if (free) {
         pieces++;
         decisions++;
@@ -163,7 +173,7 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
     }
     const key = moves.join(' ');
     if (!found.has(key)) {
-      found.set(key, { moves, pieces, decisions });
+      found.set(key, { moves, placements, pieces, decisions });
       if (found.size >= stopAfter) throw new Stop('enough');
     }
   };
@@ -250,4 +260,29 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
   };
   if (stopped) result.stopped = stopped;
   return result;
+}
+
+/**
+ * The level's board with a solution applied: movable pieces cleared to the
+ * tray, then every placement made. Pieces the solution doesn't mention keep
+ * their starting state.
+ */
+export function applySolution(start: Board, solution: Pick<Solution, 'placements'>): Board {
+  const b = start.clone();
+  b.cells.forEach((p, i) => {
+    if (p && canMove(p)) b.pickUp(i);
+  });
+  for (const { cell, piece } of solution.placements) {
+    if (piece.lock === 'free') {
+      const slot = b.inv.findIndex(
+        (s) => s.count > 0 && s.proto.kind === piece.kind && s.proto.color === piece.color && s.proto.link === piece.link,
+      );
+      if (slot < 0 || !b.place(slot, cell, piece.rot)) throw new Error(`cannot place ${formatToken(piece)} at ${cell}`);
+    } else {
+      const p = b.cells[cell];
+      if (!p || p.kind !== piece.kind) throw new Error(`no ${piece.kind} at ${cell}`);
+      p.rot = piece.rot;
+    }
+  }
+  return b;
 }

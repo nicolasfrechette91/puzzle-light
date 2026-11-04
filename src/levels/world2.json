@@ -1,0 +1,147 @@
+{
+  "id": "w2",
+  "name": "Division",
+  "blurb": "Light bends at 45\u00b0, and splitters send it two ways at once.",
+  "levels": [
+    {
+      "id": "2-1",
+      "name": "Slant",
+      "note": "Mirrors now turn in half steps, so light can travel diagonally.",
+      "grid": [
+        ".   .   .   .   .   .",
+        "Er0 .   M2~ .   .   .",
+        ".   .   .   .   .   .",
+        ".   .   .   .   Tr  .",
+        ".   .   .   .   .   ."
+      ]
+    },
+    {
+      "id": "2-2",
+      "name": "Through the Gap",
+      "grid": [
+        ".   .   .   .   #   .   .",
+        "Er0 .   .   .   #   .   .",
+        ".   .   .   .   #   .   .",
+        ".   .   .   .   #   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   Tr  ."
+      ],
+      "inv": {
+        "M": 1
+      }
+    },
+    {
+      "id": "2-3",
+      "name": "Pinch",
+      "note": "Light cannot slip between two walls that touch at a corner.",
+      "grid": [
+        ".   .   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   .   .",
+        ".   .   .   #   #   .   .   .",
+        ".   .   #   .   .   .   .   .",
+        ".   .   .   .   Tr  .   .   .",
+        ".   .   .   .   .   .   .   ."
+      ],
+      "inv": {
+        "M": 1
+      }
+    },
+    {
+      "id": "2-4",
+      "name": "Half Light",
+      "note": "A splitter reflects light and lets it through at the same time.",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Tr  .   .   ."
+      ],
+      "inv": {
+        "S": 1
+      }
+    },
+    {
+      "id": "2-5",
+      "name": "Mixer",
+      "note": "A splitter can also merge two beams.",
+      "grid": [
+        ".   .   .   Eb2 .   .   .",
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   Tm",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   Tm  .   .   ."
+      ],
+      "inv": {
+        "S": 1
+      }
+    },
+    {
+      "id": "2-6",
+      "name": "Diagonal Split",
+      "note": "Splitters turn in half steps too.",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   Tr"
+      ],
+      "inv": {
+        "S": 1
+      }
+    },
+    {
+      "id": "2-7",
+      "name": "Three Ways",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   #   #   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   Tr  .   .   Tr  .   ."
+      ],
+      "inv": {
+        "S": 2
+      }
+    },
+    {
+      "id": "2-8",
+      "name": "Fork",
+      "bends": 90,
+      "grid": [
+        ".   .   .   .   .   .   .",
+        "Er0 .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   #   .   Tr",
+        ".   .   .   .   .   .   .",
+        ".   .   Tr  .   .   .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "M": 2
+      },
+      "par": 2
+    },
+    {
+      "id": "2-9",
+      "name": "Split and Merge",
+      "note": "Split each colour, then bring them together.",
+      "grid": [
+        ".   .   .   Eg2 .   .   .",
+        ".   .   .   .   .   G   Tg",
+        "Er0 .   .   .   .   .   Ty",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   #   .   .   .",
+        ".   Tr  .   .   .   .   ."
+      ],
+      "inv": {
+        "S": 3
+      }
+    }
+  ]
+}

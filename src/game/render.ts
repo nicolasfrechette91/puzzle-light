@@ -1,4 +1,5 @@
 import type { Board } from '../core/board';
+import type { Hint } from '../core/hint';
 import { rgba, type Color } from '../core/color';
 import { canMove, canRotate, KINDS, rotDegrees, type Piece } from '../core/piece';
 import { arrivals, segments, type Segment, type Trace } from '../core/trace';
@@ -72,8 +73,51 @@ export class Renderer {
     this.beams(view.board, view.trace, L, time, game.solved && !input.preview);
     this.pieces(view.board, view.trace, L, time);
     this.interaction(game.board, input, L, nowMs);
-    this.tray(game.board, input, L, time);
+    if (!input.drag && game.hintShown) this.hint(game.board, game.hintShown, L, time);
+    this.tray(game.board, input, L, time, input.drag ? null : game.hintShown);
     this.ghost(input, L, time);
+  }
+
+  /** The suggested step: a pulsing dashed outline plus a faint ghost of the result. */
+  private hint(b: Board, h: Hint, L: Layout, time: number): void {
+    const ctx = this.ctx;
+    const s = L.cell;
+    const pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
+    const center = (i: number): [number, number] => [L.bx + ((i % L.cols) + 0.5) * s, L.by + (Math.floor(i / L.cols) + 0.5) * s];
+    const ring = (i: number, color: string) => {
+      const [x, y] = center(i);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([s * 0.1, s * 0.07]);
+      ctx.lineDashOffset = -time * s * 0.25;
+      ctx.beginPath();
+      ctx.roundRect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, s * 0.16);
+      ctx.stroke();
+      ctx.restore();
+    };
+    const target = h.kind === 'remove' ? 'rgba(255,175,150,' : 'rgba(190,210,255,';
+    ring(h.cell, `${target}${0.45 + 0.45 * pulse})`);
+    if (h.kind === 'place' || h.kind === 'move') {
+      const [x, y] = center(h.cell);
+      drawPiece(ctx, { ...h.piece, lock: 'free' }, x, y, s, { time, alpha: 0.25 + 0.3 * pulse });
+      if (h.kind === 'move') {
+        const [fx, fy] = center(h.from);
+        ctx.save();
+        ctx.strokeStyle = accent(0.35 + 0.3 * pulse);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else if (h.kind === 'rotate') {
+      const p = b.cells[h.cell];
+      const [x, y] = center(h.cell);
+      if (p) drawPiece(ctx, { ...p, rot: h.rot }, x, y, s, { time, alpha: 0.25 + 0.35 * pulse, tray: true });
+    }
   }
 
   private background(L: Layout): void {
@@ -280,7 +324,7 @@ export class Renderer {
     }
   }
 
-  private tray(b: Board, input: Input, L: Layout, time: number): void {
+  private tray(b: Board, input: Input, L: Layout, time: number, hint: Hint | null): void {
     const ctx = this.ctx;
     const t = L.tray;
     if (!t) return;
@@ -298,9 +342,17 @@ export class Renderer {
       const dragging = input.drag?.source.kind === 'slot' && input.drag.source.slot === i;
       const count = slot.count - (dragging ? 1 : 0);
       const selected = input.selectedSlot === i;
+      const hinted = hint?.kind === 'place' && hint.slot === i;
+      const pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
       ctx.fillStyle = selected ? accent(0.08) : 'rgba(150,170,230,0.035)';
-      ctx.strokeStyle = selected ? accent(0.7) : input.hoverSlot === i && count > 0 ? accent(0.2) : 'rgba(255,255,255,0.05)';
-      ctx.lineWidth = selected ? 2 : 1;
+      ctx.strokeStyle = selected
+        ? accent(0.7)
+        : hinted
+          ? accent(0.35 + 0.45 * pulse)
+          : input.hoverSlot === i && count > 0
+            ? accent(0.2)
+            : 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = selected || hinted ? 2 : 1;
       ctx.beginPath();
       ctx.roundRect(r.x, r.y, r.w, r.h, r.w * 0.16);
       ctx.fill();

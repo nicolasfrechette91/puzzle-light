@@ -31,6 +31,7 @@ src/
     trace.ts            beam tracing → per-edge colour masks, target status, solved
     history.ts          undo/redo stack with coalescing
     solver.ts           beam-guided exhaustive solver (counts, min pieces, difficulty)
+    hint.ts             next step towards the nearest solution, in light order
   game/                 browser-only
     game.ts             controller: level, board, history, trace, win state
     layout.ts           responsive geometry + hit testing
@@ -38,9 +39,8 @@ src/
     render.ts           canvas drawing
     hud.ts              DOM toolbar, notes, win banner
   levels/
-    index.ts            level packs (JSON imported at build time)
-    tutorial.json       M1 sample levels  ┐ replaced by five worlds in M4
-    optics.json         M2 sample levels  ┘
+    index.ts            world packs (JSON imported at build time)
+    world1..5.json      { id, name, blurb, levels: LevelData[] }
 tests/                  vitest, runs the core in Node (solver checked against brute force)
 scripts/check-levels.ts npm run levels: solve and validate every level (CI)
 docs/                   this file + ROADMAP.md

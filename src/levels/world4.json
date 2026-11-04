@@ -1,0 +1,129 @@
+{
+  "id": "w4",
+  "name": "Spectrum",
+  "blurb": "Prisms fan white light into red, green and blue.",
+  "levels": [
+    {
+      "id": "4-1",
+      "name": "Fan",
+      "note": "A prism fans white light out: red to one side, blue to the other.",
+      "grid": [
+        ".   .   .   .   .   Tr  .",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   .   .   .   .   Tg",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   Tb  ."
+      ],
+      "inv": {
+        "P": 1
+      }
+    },
+    {
+      "id": "4-2",
+      "name": "Mirror Image",
+      "note": "Tap a prism to flip it: red and blue swap sides.",
+      "grid": [
+        ".   .   .   .   .   Tb  .",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   .   P0~ .   .   Tg",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   Tr  ."
+      ]
+    },
+    {
+      "id": "4-3",
+      "name": "Turning Red",
+      "note": "Pure red or blue light bends in a prism too; green goes straight.",
+      "grid": [
+        ".   .   Tr  .   .   .",
+        ".   .   .   .   .   .",
+        ".   .   .   .   .   .",
+        "Er0 .   .   .   .   .",
+        ".   .   .   .   .   ."
+      ],
+      "inv": {
+        "P": 2
+      }
+    },
+    {
+      "id": "4-4",
+      "name": "Fan and Fork",
+      "grid": [
+        ".   .   .   .   .   Tr  .",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   .   .   .   .   Tg",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   Tb  .",
+        ".   .   .   .   .   .   .",
+        ".   Tw  .   .   .   .   ."
+      ],
+      "inv": {
+        "S": 1,
+        "P": 1
+      }
+    },
+    {
+      "id": "4-5",
+      "name": "Bend One",
+      "grid": [
+        ".   .   .   .   .   G   .",
+        ".   .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   P   .   .   .   Tg",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   Tb  .   ."
+      ],
+      "inv": {
+        "M": 2
+      },
+      "par": 1
+    },
+    {
+      "id": "4-6",
+      "name": "Recombine",
+      "note": "Bring red and blue back together to make magenta.",
+      "grid": [
+        ".   .   .   .   .   G   .",
+        ".   .   .   .   .   .   Tm",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   P   .   .   .   Tg",
+        ".   .   .   .   .   .   ."
+      ],
+      "inv": {
+        "M": 2
+      }
+    },
+    {
+      "id": "4-7",
+      "name": "White Again",
+      "note": "Gather all three colours into one ring.",
+      "grid": [
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   P   .   .   .   Tw",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   .",
+        ".   .   .   .   .   .   ."
+      ],
+      "inv": {
+        "M": 2
+      }
+    },
+    {
+      "id": "4-8",
+      "name": "Cyan",
+      "grid": [
+        ".   .   .   .   .   G   .",
+        ".   .   .   .   .   .   Tr",
+        ".   .   .   .   .   .   .",
+        "Ew0 .   P   .   G   .   .",
+        ".   .   .   .   .   #   .",
+        ".   .   .   .   .   .   Tc"
+      ],
+      "inv": {
+        "M": 3
+      }
+    }
+  ]
+}
