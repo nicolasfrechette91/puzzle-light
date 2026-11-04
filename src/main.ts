@@ -122,6 +122,8 @@ hud.lockNote = () => {
   const prev = PACKS[w - 1];
   return prev ? `solve ${Math.min(UNLOCK_THRESHOLD, prev.levels.length)} in ${prev.name} to open ${PACKS[w]!.name}` : null;
 };
+// The HUD drew once before these callbacks existed; redraw so e.g. the sound button starts correct.
+hud.refresh();
 select.onPick = (i) => {
   if (mode !== 'campaign') location.hash = '';
   campaignIndex = i;

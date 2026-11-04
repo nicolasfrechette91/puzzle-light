@@ -337,3 +337,24 @@ Process:
 * **Question:** Which licence (left open in D-046)?
 * **Choice:** MIT, copyright Nicolas Frechette: a `LICENSE` file, `"license": "MIT"` in `package.json`, and a line in the README.
 * **Reason:** The owner's choice.
+
+### D-049 · Piece silhouettes, shared by board, palette and tray (post-M7, by: user + claude)
+* **Question:** Several pieces looked alike in the editor palette and tray. Wall, glass and filter were all dark squares; target, black hole and portal were all circles; mirror and splitter were near-identical bars. How should every piece become recognisable at a glance?
+* **Rules from the user:** a unique silhouette, recognisable in monochrome at 24 px, with colour only as a secondary cue. Icons must match the board. The palette is grouped Structure / Light / Optics / Special, with labels. Selected must look clearly stronger than hover.
+* **Choice:**
+  * **One drawer per piece**, used for both the board and the icons, so learning one teaches the other. The board pieces changed to the new silhouettes too:
+    * Wall: a solid block with brick courses.
+    * Glass: a thin frame with a diagonal shine.
+    * Emitter: a box with a nozzle (the icon adds a beam with an arrowhead).
+    * Target: a bullseye.
+    * Mirror: a solid bar.
+    * Splitter: the same bar in three dashes.
+    * Prism: a solid wedge (the icon adds its red, green and blue fan).
+    * Filter: a tinted frame with a funnel.
+    * Black hole: a filled dark disc with a two-armed swirl (the icon adds a halo so it reads as solid on a dark panel).
+    * Portal: a tall oval doorway with its pair dots stacked inside.
+    * Eraser (palette only): a tilted two-tone block.
+  * **Icons use a canonical orientation:** mirror and splitter on the diagonal, emitter and prism pointing east. They show the piece's kind, not its current rotation (a prism still shows which way it is flipped).
+  * **Palette:** four labelled groups. Each tool has a visible label and a one-line tooltip (`title` and `aria-label`). Hover only lifts the border slightly; the selected tool gets a bright border, a glow, a tint and a bold label.
+* **Verified:** every icon rendered at 24 px with a device pixel ratio of 1, converted to greyscale and upscaled ×4. All 11 stay distinct. The first pass caught three problems that were fixed: a filter that drew as a solid square (a funnel scale bug), a prism that read as a bowtie, and a black hole whose dark disc vanished.
+* **Reason:** Policy 1 (player clarity): the piece's role is visible from its shape alone, on the board and in every menu.

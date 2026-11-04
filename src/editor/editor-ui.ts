@@ -16,7 +16,43 @@ const $ = <T extends HTMLElement>(sel: string): T => {
   return el;
 };
 
-const TOOLS: (Kind | 'erase')[] = ['erase', 'wall', 'glass', 'emitter', 'target', 'mirror', 'splitter', 'prism', 'filter', 'hole', 'portal'];
+type Tool = Kind | 'erase';
+
+/** The palette, grouped by role. Each tool has a short label and a one-line tooltip. */
+const TOOL_GROUPS: { name: string; tools: { kind: Tool; label: string; tip: string }[] }[] = [
+  {
+    name: 'Structure',
+    tools: [
+      { kind: 'erase', label: 'Eraser', tip: 'Clear a cell (right-click or long-press also erases)' },
+      { kind: 'wall', label: 'Wall', tip: 'Blocks light; diagonal light can’t slip between two walls at a corner' },
+      { kind: 'glass', label: 'Glass', tip: 'Lets light through; nothing can be built on it' },
+    ],
+  },
+  {
+    name: 'Light',
+    tools: [
+      { kind: 'emitter', label: 'Emitter', tip: 'Sends coloured light in a straight line' },
+      { kind: 'target', label: 'Target', tip: 'Must receive exactly its colour' },
+    ],
+  },
+  {
+    name: 'Optics',
+    tools: [
+      { kind: 'mirror', label: 'Mirror', tip: 'Reflects light from both faces' },
+      { kind: 'splitter', label: 'Splitter', tip: 'Reflects and lets light through' },
+      { kind: 'prism', label: 'Prism', tip: 'Fans white into red, green and blue' },
+      { kind: 'filter', label: 'Filter', tip: 'Keeps only its own colour' },
+    ],
+  },
+  {
+    name: 'Special',
+    tools: [
+      { kind: 'hole', label: 'Black hole', tip: 'Swallows all light' },
+      { kind: 'portal', label: 'Portal', tip: 'Light leaves its twin, heading the same way' },
+    ],
+  },
+];
+const ICON_PX = 28;
 const COLORS = [1, 2, 4, 3, 5, 6, 7];
 const LONG_PRESS_MS = 450;
 
@@ -261,24 +297,31 @@ export class EditorUI {
 
   private buildPanel(): void {
     const tools = $('#ed-tools');
-    for (const kind of TOOLS) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'tool';
-      b.dataset.kind = kind;
-      b.title = kind === 'erase' ? 'Erase (right-click also erases)' : KINDS[kind].name;
-      b.setAttribute('aria-label', b.title);
-      if (kind === 'erase') {
-        b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16l8-8 6 6-5 5H8z"/><path d="M9 19h11"/></svg>';
-      } else {
-        b.appendChild(document.createElement('canvas'));
+    for (const group of TOOL_GROUPS) {
+      const section = document.createElement('div');
+      section.className = 'tool-group';
+      section.setAttribute('role', 'group');
+      section.setAttribute('aria-label', group.name);
+      const head = Object.assign(document.createElement('h3'), { className: 'tool-group-name', textContent: group.name });
+      const row = document.createElement('div');
+      row.className = 'tool-row';
+      for (const { kind, label, tip } of group.tools) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'tool';
+        b.dataset.kind = kind;
+        b.title = `${label}: ${tip}`;
+        b.setAttribute('aria-label', `${label}. ${tip}`);
+        b.append(document.createElement('canvas'), Object.assign(document.createElement('span'), { className: 'tool-label', textContent: label }));
+        b.addEventListener('click', () => {
+          this.brush.kind = kind;
+          if (kind !== 'erase' && KINDS[kind].rotSteps === 1) this.brush.rot = 0;
+          this.renderPanel();
+        });
+        row.append(b);
       }
-      b.addEventListener('click', () => {
-        this.brush.kind = kind;
-        if (kind !== 'erase' && KINDS[kind].rotSteps === 1) this.brush.rot = 0;
-        this.renderPanel();
-      });
-      tools.appendChild(b);
+      section.append(head, row);
+      tools.append(section);
     }
     const colors = $('#ed-colors');
     for (const c of COLORS) {
@@ -364,11 +407,11 @@ export class EditorUI {
     const m = this.model;
     const b = this.brush;
     for (const el of document.querySelectorAll<HTMLButtonElement>('#ed-tools .tool')) {
-      const kind = el.dataset.kind as Kind | 'erase';
+      const kind = el.dataset.kind as Tool;
       el.classList.toggle('on', kind === b.kind);
       el.setAttribute('aria-pressed', String(kind === b.kind));
       const cv = el.querySelector('canvas');
-      if (cv && kind !== 'erase') drawPieceIcon(cv, this.brushPiece(kind), 30);
+      if (cv) drawPieceIcon(cv, kind === 'erase' ? 'erase' : this.brushPiece(kind), ICON_PX);
     }
     const colored = b.kind !== 'erase' && KINDS[b.kind].colored;
     $('#ed-colors').hidden = !colored;
@@ -393,7 +436,7 @@ export class EditorUI {
         chip.className = 'tray-chip';
         chip.title = `Remove one ${KINDS[s.proto.kind].name} from the tray`;
         const cv = document.createElement('canvas');
-        drawPieceIcon(cv, s.proto, 22);
+        drawPieceIcon(cv, s.proto, 24);
         chip.append(cv, `×${s.count}`, Object.assign(document.createElement('span'), { className: 'minus', textContent: '−' }));
         chip.addEventListener('click', () => m.removeFromTray(i));
         return chip;
