@@ -584,3 +584,38 @@ Process:
   * The daily and endless modes say the puzzle couldn't be made; endless skips a level number only for a seed with no level, never for a worker failure.
   * The editor's check shows the error.
 * **Reason:** Every caller already handled a rejection; it just never came.
+
+### D-073 · Generator v2: the middle of the band, no repeats in easy, less clutter (post-audit, by: user + claude)
+* **Question:** The audit found easy levels that took one move to see, an easy puzzle that appeared twice, difficulty bunched at the bottom of each band, and boards a third covered in walls and glass. The owner asked for an easy floor of 6, no repeated easy solutions, levels aimed at the middle of each band, at most ~25% walls and glass, and a final "not solved at the start" check, all under one `GENERATOR_VERSION` bump (now 2).
+* **Choice:**
+  * **Middle of the band:** each tier gets an `aim`, the middle of its band in whole numbers (easy 7–9, medium 11–14, hard 15–18), so it is tested exactly. The tidy pass keeps opening the board until the level reaches the aim. The first acceptable level inside the aim is taken; otherwise, after 4 acceptable ones, the one closest to the middle (compared exactly with BigInt).
+  * **Easy:** band 6–10. One mirror can't reach 6, and the old 5×4 to 6×5 boards held only about 790 different two-mirror puzzles, so easy now uses 2–3 mirrors on 5×5 to 7×6 boards (at least ~7,600 puzzles, measured). Still one emitter, mirrors only, right angles.
+  * **No repeats:** a level's *signature* is its layout of light: board size, emitters, targets, and the solution's pieces and angles, ignoring colours and walls. An easy level whose signature matches an earlier easy level is passed over. That makes level *n* depend on levels 1…*n*−1, so the generator worker keeps each tier's solution ids, and the game saves them (`puzzle-light:endless-history:v2`, one 32-bit id per level). A reload then costs one level, not *n*. Without the saved ids it rebuilds: 1.4 s at #1,000 on a desktop. If fresh puzzles ever run out, a level may repeat rather than fail.
+  * **Clutter:** at most a quarter of the board may be walls and glass.
+  * **Start check:** after walls are added and removed (walls pinch corners) the start is traced again.
+* **Measured** (50 dailies, endless #1–30 per tier, bundled as in the worker):
+
+  | set | difficulty min / median / max | time median / p90 / max | walls + glass max |
+  |---|---|---|---|
+  | daily | 10.8 / 12.1 / 13.9 | 75 / 201 / 396 ms | 25% |
+  | easy | 7.0 / 8.1 / 8.9 | 1 / 2 / 3 ms | 25% |
+  | medium | 11.0 / 12.0 / 13.9 | 58 / 132 / 184 ms | 25% |
+  | hard | 14.6 / 16.3 / 17.8 | 220 / 499 / 823 ms | 25% |
+
+  No repeated names or solutions, and every level re-verified.
+* **Reason:** Policy 1 (each level should feel like its tier) and 2 (unchanged: every level is unique and solver-verified). Saving the ids keeps "the same for everyone" exact without a slow start.
+
+### D-074 · Level names: 4,096, never repeated within a sequence (post-audit, by: user + claude)
+* **Question:** 20 × 20 words gave 16 repeated names in 140 levels. How do names stop repeating within a tier?
+* **Options:** remember used names (another history); or derive the name from the level's number through a bijection.
+* **Choice:** 64 adjectives × 64 nouns, and `levelName(slot, key)`: a bijective 12-bit shuffle of the slot. Each tier has its own key. The daily shares medium's key and takes the odd slots while endless medium takes the even ones, so the first 4,096 levels of a tier (2,048 for daily and endless medium) never share a name.
+* **Reason:** No history to keep, the same name for everyone, and a test can check all 4,096 slots (policy 3).
+
+### D-075 · Faster solver, same results (post-audit, by: claude)
+* **Question:** Aiming at the middle of the band made hard generation slower: p90 1.1 s, against a ~1 s target. Profiling showed half the time allocating the tracer's `out` array (a few hundred bytes, more than V8 keeps on its heap), and much of the rest building state keys.
+* **Choice:**
+  * `trace(board, reuse?)` refills a trace the caller no longer needs, and the solver keeps one per search depth.
+  * Neighbour and corner-side tables are computed once per board size.
+  * The solver's state key is one char per cell and per rotate-only piece, kept up to date as pieces are placed.
+* **Measured:** hard p90 went from 1,020 ms to 437 ms with two candidates (499 ms with four). Hard generation, the full level check and hints all get faster. Every generated level and every bundled level's solver output (states, solutions, difficulty) was compared before and after: byte-identical.
+* **Reason:** Policy 3, with nothing given up: same states, same answers.

@@ -242,23 +242,30 @@ only the ratios matter): tracing a 24×24 board with 2,665 beam segments takes
 the whole viewport twice. Bundle: main 93.0 kB (31.5 kB gzip), editor 19.8 kB
 (6.9 kB), workers 10.6–18.0 kB each, CSS 10.3 kB (2.9 kB).
 
+## Generator v2 (after the audit)
+
+`GENERATOR_VERSION` 2 (D-073 to D-075). Every daily and endless level
+changed. Easy is 2–3 mirrors on 5×5 to 7×6 boards, difficulty 6–10, and never
+repeats a solution. Every tier aims for the middle of its band, walls and
+glass fill at most a quarter of the board, names come from 4,096 and don't
+repeat within a tier, and a faster solver keeps hard under half a second at
+p90. Same sample as the audit (50 dailies, endless #1–30 per tier):
+
+| set | made | difficulty min / median / max | time median / p90 / max |
+|---|---|---|---|
+| daily (medium) | 50 / 50 | 10.8 / 12.1 / 13.9 | 75 / 201 / 396 ms |
+| endless easy | 30 / 30 | 7.0 / 8.1 / 8.9 | 1 / 2 / 3 ms |
+| endless medium | 30 / 30 | 11.0 / 12.0 / 13.9 | 58 / 132 / 184 ms |
+| endless hard | 30 / 30 | 14.6 / 16.3 / 17.8 | 220 / 499 / 823 ms |
+
 ## Open questions for the owner
 
 * ~~Licence (D-046)~~: MIT, chosen by the owner (D-048).
 * ~~First deployment~~: Pages uses the GitHub Actions source, and `main` was created from the development branch; every push to `main` deploys to https://nicolasfrechette91.github.io/puzzle-light/.
 * **Audit recommendations** (subjective, so left unchanged). Any generator
   change needs a `GENERATOR_VERSION` bump, which changes every daily and endless level.
-  * **Easy floor:** 10 of the first 30 easy levels score exactly 5.0: one
-    mirror, placed where the emitter's row meets the target's column. Easy
-    #15 and #30 are the same puzzle with different walls. Options: raise the
-    floor to 6, or skip a level whose solution repeats one earlier in the tier.
-  * **Bands skew low:** 19 of 50 dailies score 10.x and only one scores 15.
-    The tidy pass stops as soon as a level is in band; to make "medium" feel
-    medium, aim for the middle of the band.
-  * **Clutter:** walls and glass reach 34% of the board (daily 2026-11-11:
-    12 of 35 cells). Consider a cap.
-  * **Names:** 20 × 20 words; 16 names repeat across 140 levels (Hard #1, #3
-    and #24 are all "Gentle Meridian").
+  * ~~**Easy floor, bands, clutter, names**~~: done in generator v2 (D-073,
+    D-074); see "Generator v2" above.
   * **Idle frames:** the canvas redraws at the full frame rate even when
     nothing moves, and the bloom scales the whole viewport. Clipping the bloom
     to the board and slowing down when idle would save battery on phones.

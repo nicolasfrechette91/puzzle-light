@@ -9,23 +9,62 @@ export const OFF_BOARD = -1;
 export const CORNER = -2;
 
 /**
+ * Neighbour tables for one board size, indexed like `Trace.out` (cell·8 + dir):
+ * the cell a step arrives at (or OFF_BOARD), and for diagonal steps the two
+ * cells beside it that can pinch the corner (D-075).
+ */
+interface Steps {
+  to: Int32Array;
+  side1: Int32Array;
+  side2: Int32Array;
+}
+
+const stepTables = new Map<number, Steps>();
+function stepsFor(w: number, h: number): Steps {
+  const key = w * 1024 + h;
+  let s = stepTables.get(key);
+  if (s) return s;
+  const n = w * h * 8;
+  s = { to: new Int32Array(n).fill(OFF_BOARD), side1: new Int32Array(n).fill(-1), side2: new Int32Array(n).fill(-1) };
+  for (let cell = 0; cell < w * h; cell++) {
+    const cx = cell % w;
+    const cy = (cell / w) | 0;
+    for (let dir = 0; dir < 8; dir++) {
+      const x = cx + DX[dir]!;
+      const y = cy + DY[dir]!;
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const k = cell * 8 + dir;
+      s.to[k] = y * w + x;
+      if (dir & 1) {
+        s.side1[k] = cy * w + x;
+        s.side2[k] = y * w + cx;
+      }
+    }
+  }
+  stepTables.set(key, s);
+  return s;
+}
+
+/** Two corner-blocking pieces (walls) on both sides of a diagonal step. */
+function pinched(cells: Board['cells'], steps: Steps, k: number): boolean {
+  const a = cells[steps.side1[k]!];
+  if (!a || !KINDS[a.kind].cornerBlock) return false;
+  const b = cells[steps.side2[k]!];
+  return !!b && KINDS[b.kind].cornerBlock;
+}
+
+/**
  * Where light leaving `cell` towards `dir` arrives: a cell index, OFF_BOARD,
  * or CORNER when a diagonal step would squeeze between two walls that touch
  * at a corner.
  */
 export function nextCell(b: Board, cell: number, dir: number): number {
-  const { w, h, cells } = b;
-  const cx = cell % w;
-  const cy = (cell / w) | 0;
-  const x = cx + DX[dir]!;
-  const y = cy + DY[dir]!;
-  if (x < 0 || y < 0 || x >= w || y >= h) return OFF_BOARD;
-  if (dir & 1) {
-    const side1 = cells[cy * w + x];
-    const side2 = cells[y * w + cx];
-    if (side1 && side2 && KINDS[side1.kind].cornerBlock && KINDS[side2.kind].cornerBlock) return CORNER;
-  }
-  return y * w + x;
+  const steps = stepsFor(b.w, b.h);
+  const k = cell * 8 + dir;
+  const j = steps.to[k]!;
+  if (j < 0) return OFF_BOARD;
+  if (dir & 1 && pinched(b.cells, steps, k)) return CORNER;
+  return j;
 }
 
 /**
@@ -118,7 +157,9 @@ export interface Trace {
 }
 
 /**
- * Trace all beams on the board to a fixpoint.
+ * Trace all beams on the board to a fixpoint. If `reuse` is given (a trace
+ * the caller no longer needs), its arrays are cleared and filled instead of
+ * allocating new ones.
  *
  * Each `(cell, dir, channel)` is expanded at most once: `emit` only forwards
  * colour bits that were not already leaving that cell in that direction. That
@@ -126,13 +167,17 @@ export interface Trace {
  * independent of processing order. Every interaction acts on each colour
  * channel independently, so forwarding only the new bits is exact.
  */
-export function trace(b: Board): Trace {
+export function trace(b: Board, reuse?: Trace): Trace {
   const { cells } = b;
   const n = b.size;
-  const out = new Uint8Array(n * 8);
-  const lit = new Uint8Array(n);
-  const hit = new Uint8Array(n);
+  // Allocating `out` dominated the solver's time (D-075), so a caller that is
+  // done with an earlier trace of a same-sized board can hand it back to fill.
+  const fits = reuse !== undefined && reuse.lit.length === n;
+  const out = fits ? reuse.out.fill(0) : new Uint8Array(n * 8);
+  const lit = fits ? reuse.lit.fill(0) : new Uint8Array(n);
+  const hit = fits ? reuse.hit.fill(0) : new Uint8Array(n);
   const partner = portalPartners(b);
+  const steps = stepsFor(b.w, b.h);
   const queue: number[] = [];
 
   const emit = (cell: number, dir: number, mask: number): void => {
@@ -154,8 +199,8 @@ export function trace(b: Board): Trace {
     const k = queue[head++]!;
     const mask = queue[head++]!;
     const dir = k & 7;
-    const j = nextCell(b, k >> 3, dir);
-    if (j < 0) continue; // left the board or pinched in a corner
+    const j = steps.to[k]!;
+    if (j < 0 || (dir & 1 && pinched(cells, steps, k))) continue; // left the board or pinched in a corner
     lit[j]! |= mask;
     const p = cells[j];
     if (!p) {

@@ -35,6 +35,7 @@ src/
     share.ts            level ⇄ URL share code (versioned base64url JSON)
     random.ts           seeded PRNG (mulberry32) + string → seed (FNV-1a)
     generate.ts         seeded procedural levels, verified by the solver
+    names.ts            4,096 level names, never repeated within a sequence
     daily.ts            daily puzzle: date → seed, move par, streak rules, share text
     endless.ts          endless mode: (tier, n) → seed → level
   game/                 browser-only
@@ -214,12 +215,21 @@ attempt (seeded independently from the master seed):
    walls go only on cells the solution's light never touches;
 5. while the solver finds a rival solution, block a cell only the rival uses
    (wall if unlit in the solution, glass if lit); then tidy away walls that
-   uniqueness doesn't need.
+   uniqueness doesn't need until the difficulty reaches the middle of the
+   band (opening the board makes it harder).
 
 Accepted when the solution is unique, every tray and rotatable piece is in
-it, the start isn't solved and `log2(states) + decisions` is in the tier's
-band, tested with exact integers (`states × 2^decisions` against powers of
-two) so the choice can't differ between JavaScript engines.
+it, the start isn't solved (checked again after the walls change), at most a
+quarter of the board is walls and glass, and `log2(states) + decisions` is in
+the tier's band, tested with exact integers (`states × 2^decisions` against
+powers of two) so the choice can't differ between JavaScript engines. The
+first acceptable level in the middle of the band (`aim`) is taken; otherwise
+the closest of four (D-073).
+
+A level's `signature` is its layout of light: size, emitters, targets and
+the solution's pieces and angles. Easy endless levels never repeat an earlier
+signature, so `EndlessSeries` remembers each level's solution id, and the game
+saves them so a reload doesn't replay the sequence.
 
 ## Solver (`src/core/solver.ts`)
 

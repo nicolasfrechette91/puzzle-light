@@ -1,5 +1,6 @@
 import type { Board } from './board';
 import { generate, GENERATOR_VERSION, type Generated, type Tier } from './generate';
+import { dailyName } from './names';
 import { KINDS } from './piece';
 import { seedFrom } from './random';
 import type { Solution } from './solver';
@@ -42,7 +43,7 @@ export function dailySeed(date: string): number {
 
 /** The puzzle for a date. Deterministic; null only if generation failed (it hasn't in testing). */
 export function dailyLevel(date: string): Generated | null {
-  const g = generate({ seed: dailySeed(date), tier: DAILY_TIER, maxAttempts: 1500 });
+  const g = generate({ seed: dailySeed(date), tier: DAILY_TIER, maxAttempts: 1500, name: dailyName(dailyNumber(date)) });
   if (!g) return null;
   g.level.id = `daily-${date}`;
   return g;

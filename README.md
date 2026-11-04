@@ -95,8 +95,8 @@ Puzzle Light · Daily #3
 
 Pick **Easy**, **Medium** or **Hard** on the **Endless** card for a numbered
 stream of generated puzzles at that difficulty (`#endless=hard`). Each one is
-proven to have exactly one solution. Skip any you don't fancy; you resume
-where you left off.
+proven to have exactly one solution, and no Easy puzzle repeats an earlier
+one. Skip any you don't fancy; you resume where you left off.
 
 ## Level editor
 

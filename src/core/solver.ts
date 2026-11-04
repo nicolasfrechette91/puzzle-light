@@ -146,16 +146,15 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
   const visited = new Set<string>();
   const found = new Map<string, Solution>();
   let nodes = 0;
+  const traces: Trace[] = [];
+  let depth = 0;
 
-  const stateKey = (): string => {
-    let k = '';
-    for (let i = 0; i < work.size; i++) {
-      const p = work.cells[i];
-      if (p && p.lock === 'free') k += `${i}:${formatToken(p)},`;
-    }
-    for (const i of decisionCells) k += decided.has(i) ? `${decided.get(i)}` : '_';
-    return k;
-  };
+  // The state as one char per cell (0, or 1 + slot·8 + orientation of the tray
+  // piece placed there) and one per rotate-only piece (0 undecided, else
+  // 1 + orientation), kept up to date as the search moves (D-075).
+  const state = new Uint16Array(work.size + decisionCells.length);
+  const decisionIndex = new Map(decisionCells.map((c, k) => [c, work.size + k]));
+  const stateKey = (): string => String.fromCharCode.apply(null, state as unknown as number[]);
 
   const record = (t: Trace): void => {
     const moves: string[] = [];
@@ -185,19 +184,24 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
 
   const decide = (cell: number): void => {
     const orig = original.get(cell)!;
+    const at = decisionIndex.get(cell)!;
     for (const r of work.rotations(orig)) {
       work.cells[cell] = { ...orig, rot: r };
       decided.set(cell, r);
+      state[at] = 1 + r;
       visit();
     }
     work.cells[cell] = UNDECIDED;
     decided.delete(cell);
+    state[at] = 0;
   };
 
   const placeAndVisit = (slot: number, cell: number, rot: number): void => {
-    work.place(slot, cell, rot);
+    if (!work.place(slot, cell, rot)) return;
+    state[cell] = 1 + slot * 8 + rot;
     visit();
     work.pickUp(cell);
+    state[cell] = 0;
   };
 
   function visit(): void {
@@ -211,13 +215,23 @@ export function solve(start: Board, opts: SolveOptions = {}): SolveResult {
     const pending = emitterCells.find((i) => !decided.has(i));
     if (pending !== undefined) return decide(pending);
 
-    const t = trace(work);
+    // One trace per search depth, reused (D-075): this node's is overwritten
+    // only by deeper nodes, and only after `depth` moves past it.
+    const t = (traces[depth] = trace(work, traces[depth]));
     const forced = decisionCells.find((i) => !decided.has(i) && t.lit[i]);
-    if (forced !== undefined) return decide(forced);
+    if (forced !== undefined) return decide(forced); // `t` isn't read again
 
     if (t.solved) record(t);
     if (work.invCount() === 0) return;
+    depth++;
+    try {
+      branch(t);
+    } finally {
+      depth--;
+    }
+  }
 
+  function branch(t: Trace): void {
     // Place a tray piece where light currently enters, if it changes that light.
     for (let c = 0; c < work.size; c++) {
       if (work.cells[c] !== null || !t.lit[c]) continue;

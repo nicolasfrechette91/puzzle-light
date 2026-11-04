@@ -3,14 +3,15 @@
 exports[`generate > produces a pinned level for a pinned seed (bump GENERATOR_VERSION when this changes on purpose) 1`] = `
 {
   "grid": [
-    ".   .   #   .   .   .",
-    ".   .   .   .   #   .",
-    ".   .   .   .   .   Eg4",
-    ".   Tg  .   .   #   .",
+    ".   #   .   .   .   .",
+    ".   .   .   M6~ #   #",
+    "#   .   .   .   .   .",
+    ".   .   .   .   .   .",
+    "#   Tr  .   Er6 .   .",
   ],
   "inv": {
     "M": 1,
   },
-  "name": "Lunar Lantern",
+  "name": "Faint Arc",
 }
 `;

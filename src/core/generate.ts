@@ -2,6 +2,7 @@ import { Board, type Bends } from './board';
 import { BLUE, GREEN, RED, WHITE, type Color } from './color';
 import { type LevelData, parseLevel, toLevelData } from './level';
 import { canRotate, KINDS, type Kind, type Piece } from './piece';
+import { levelName } from './names';
 import { rng, type Rng } from './random';
 import { isActive, solve, type Solution, type SolveResult } from './solver';
 import { slotKey } from './token';
@@ -23,10 +24,12 @@ import { arrivals, nextCell, trace } from './trace';
  *      does), then removes walls that turn out not to matter.
  *
  * A level is accepted only if it has exactly one solution, every tray piece
- * and every rotatable piece is used in it, it isn't solved at the start, and
- * its difficulty is inside the tier's band. Everything is driven by a seeded
- * PRNG and exact integer comparisons, so a seed gives the same level in
- * every browser (D-050).
+ * and every rotatable piece is used in it, it isn't solved at the start, at
+ * most a quarter of the board is walls and glass, and its difficulty is
+ * inside the tier's band. The first level in the middle of the band is taken;
+ * failing that, the closest of a few (D-073). Everything is driven by a
+ * seeded PRNG and exact integer comparisons, so a seed gives the same level
+ * in every browser (D-050).
  */
 
 /**
@@ -34,7 +37,7 @@ import { arrivals, nextCell, trace } from './trace';
  * shared endless levels are keyed by it, so old ones stay reproducible in
  * spirit and nobody is silently handed a different "today" mid-day.
  */
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;
 
 export type Tier = 'easy' | 'medium' | 'hard';
 export const TIERS: readonly Tier[] = ['easy', 'medium', 'hard'];
@@ -60,25 +63,38 @@ export interface TierSpec {
   walls: readonly [number, number];
   /** Accepted difficulty: lo ≤ log2(states) + decisions < hi (D-015). */
   band: readonly [number, number];
+  /** The middle of the band (whole numbers, so it is tested exactly): a level in it is taken at once (D-073). */
+  aim: readonly [number, number];
+  /** In-band levels to consider before settling for the one closest to the middle of the band. */
+  candidates: number;
+  /** Levels of an endless sequence never repeat an earlier one's solution (D-073). */
+  distinct?: boolean;
 }
 
 export const TIER_SPECS: Readonly<Record<Tier, TierSpec>> = {
   easy: {
+    // Two or three mirrors on boards up to 7×6: one mirror can't reach
+    // difficulty 6, and smaller boards hold only ~800 different puzzles, too
+    // few for a sequence that never repeats (D-073).
     sizes: [
-      [5, 4],
-      [6, 4],
       [5, 5],
       [6, 5],
+      [7, 5],
+      [6, 6],
+      [7, 6],
     ],
     bends: 90,
     emitters: [1, 1],
     emitterColors: [RED, GREEN, BLUE],
-    pieces: [1, 2],
+    pieces: [2, 3],
     kinds: [{ kind: 'mirror', weight: 1 }],
     rotateOnly: [1, 3],
     targets: [1, 1],
     walls: [1, 6],
-    band: [5, 10],
+    band: [6, 10],
+    aim: [7, 9],
+    candidates: 4,
+    distinct: true,
   },
   medium: {
     sizes: [
@@ -99,6 +115,8 @@ export const TIER_SPECS: Readonly<Record<Tier, TierSpec>> = {
     targets: [1, 2],
     walls: [1, 5],
     band: [10, 15],
+    aim: [11, 14],
+    candidates: 4,
   },
   hard: {
     // Measured: three pieces with half of them rotate-only keeps hard levels at
@@ -123,6 +141,8 @@ export const TIER_SPECS: Readonly<Record<Tier, TierSpec>> = {
     targets: [2, 3],
     walls: [1, 5],
     band: [14, 19],
+    aim: [15, 18],
+    candidates: 4,
   },
 };
 
@@ -137,6 +157,10 @@ export interface GenerateOptions {
    * log2(states) + decisions and decisions ≥ pieces. Repair checks get 4× that.
    */
   maxNodes?: number;
+  /** The level's name; by default one derived from the seed. */
+  name?: string;
+  /** Solutions to steer clear of, by `signature`: a level whose signature matches is passed over (D-073). */
+  avoid?: (signature: string) => boolean;
 }
 
 export interface Generated {
@@ -147,6 +171,8 @@ export interface Generated {
   attempt: number;
   difficulty: number;
   solution: Solution;
+  /** The puzzle's layout of light, for spotting repeats (see `signature`). */
+  signature: string;
 }
 
 /** Exact band test for log2(nodes) + decisions in [lo, hi), with no floating-point logarithms. */
@@ -155,8 +181,44 @@ export function inBand(nodes: number, decisions: number, [lo, hi]: readonly [num
   return v >= 2 ** lo && v < 2 ** hi;
 }
 
-const ADJECTIVES = ['Quiet', 'Pale', 'Silver', 'Distant', 'Gentle', 'Hidden', 'Folded', 'Tilted', 'Bright', 'Hollow', 'Still', 'Amber', 'Velvet', 'Glass', 'Paper', 'Lunar', 'Slow', 'Narrow', 'Open', 'Late'];
-const NOUNS = ['Corridor', 'Lantern', 'Harbour', 'Garden', 'Signal', 'Window', 'Crossing', 'Orchard', 'Tide', 'Ember', 'Atrium', 'Meridian', 'Prism', 'Shore', 'Veil', 'Arc', 'Courtyard', 'Echo', 'Horizon', 'Lattice'];
+/**
+ * Is difficulty `a` strictly closer than `b` to the middle of `[lo, hi)`?
+ * Each is given as (nodes, decisions), i.e. log2(nodes · 2^decisions). Compared
+ * exactly: |log2 v − (lo + hi)/2| is half of |log2 v² − (lo + hi)|, and the
+ * ratio max(v², P) / min(v², P) with P = 2^(lo + hi) orders those distances.
+ */
+export function closerToMiddle(a: readonly [number, number], b: readonly [number, number], [lo, hi]: readonly [number, number]): boolean {
+  const P = 2n ** BigInt(lo + hi);
+  const ratio = ([nodes, decisions]: readonly [number, number]): [bigint, bigint] => {
+    const v2 = (BigInt(nodes) * 2n ** BigInt(decisions)) ** 2n;
+    return v2 >= P ? [v2, P] : [P, v2];
+  };
+  const [an, ad] = ratio(a);
+  const [bn, bd] = ratio(b);
+  return an * bd < bn * ad;
+}
+
+/** At most this share of the board may be walls and glass (D-073). */
+export const structureCap = (b: Board): number => Math.floor(b.size / 4);
+
+const structure = (b: Board): number => b.cells.reduce((n, p) => n + (p?.kind === 'wall' || p?.kind === 'glass' ? 1 : 0), 0);
+
+/**
+ * The puzzle's layout of light: board size, where emitters point from, where
+ * targets sit, and where the solution's pieces go at which angle. Colours,
+ * walls, glass and starting angles are left out, so two levels with the same
+ * signature are the same puzzle in different clothes (D-073).
+ */
+export function signature(b: Board, s: Solution): string {
+  const at = (i: number) => `${b.x(i)},${b.y(i)}`;
+  const parts = [`${b.w}x${b.h}`];
+  b.cells.forEach((p, i) => {
+    if (p?.kind === 'emitter') parts.push(`E${p.rot}@${at(i)}`);
+    else if (p?.kind === 'target') parts.push(`T@${at(i)}`);
+  });
+  for (const pl of s.placements) parts.push(`${KINDS[pl.piece.kind].code}${pl.piece.rot}@${at(pl.cell)}`);
+  return parts.join(' ');
+}
 
 const between = (R: Rng, [lo, hi]: readonly [number, number]) => lo + R.int(hi - lo + 1);
 
@@ -353,15 +415,21 @@ function attemptOnce(R: Rng, spec: TierSpec, maxNodes: number): { board: Board; 
   const decisions = r.solutions[0]!.decisions;
   if (r.nodes * 2 ** decisions >= 2 ** spec.band[1]) return null;
 
-  // Tidy: remove walls the uniqueness doesn't depend on, while still in budget.
+  // Tidy: remove walls the uniqueness doesn't depend on. Opening the board
+  // raises the difficulty, so keep going until it reaches the middle of the
+  // band (and the walls are within the cap); the rest stay for texture.
+  const cap = structureCap(puzzle);
   for (const i of R.shuffle(walls).slice(0, TIDY_LIMIT)) {
-    if (inBand(r.nodes, decisions, spec.band) && R.chance(1, 2)) break; // good enough; keep some walls for texture
+    if (structure(puzzle) <= cap && inBand(r.nodes, decisions, [spec.aim[0], spec.band[1]])) break;
     const saved = puzzle.cells[i];
     puzzle.cells[i] = null;
     const again = check(puzzle, maxNodes);
     if (unique(again) && again.nodes * 2 ** decisions < 2 ** spec.band[1]) r = again;
     else puzzle.cells[i] = saved;
   }
+  if (structure(puzzle) > cap) return null;
+  // Walls changed since the start was checked, and walls pinch corners: check again.
+  if (trace(puzzle).solved) return null;
   return { board: puzzle, result: r };
 }
 
@@ -373,27 +441,41 @@ function everyPieceMatters(b: Board, s: Solution): boolean {
   return b.cells.every((p, i) => !p || !canRotate(p) || p.lock !== 'rotate' || used.has(i));
 }
 
-/** Generate one level for a tier from a seed. Returns null if no attempt passed (rare). */
+/**
+ * Generate one level for a tier from a seed. The first acceptable level in
+ * the middle of the band (`aim`) is taken; otherwise, after `candidates`
+ * acceptable levels, the one closest to the middle (D-073). Returns null if
+ * no attempt passed (rare).
+ */
 export function generate(opts: GenerateOptions): Generated | null {
   const spec = TIER_SPECS[opts.tier];
   const maxAttempts = opts.maxAttempts ?? 400;
   const maxNodes = opts.maxNodes ?? 2 ** (spec.band[1] - spec.pieces[0]);
   const master = rng(opts.seed);
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  let best: { board: Board; result: SolveResult; attempt: number; sig: string } | null = null;
+  let found = 0;
+  for (let attempt = 1; attempt <= maxAttempts && found < spec.candidates; attempt++) {
     const R = rng(master.fork());
     const got = attemptOnce(R, spec, maxNodes);
     if (!got) continue;
     const s = got.result.solutions[0]!;
     if (!everyPieceMatters(got.board, s)) continue;
     if (!inBand(got.result.nodes, s.decisions, spec.band)) continue;
-    const name = `${R.pick(ADJECTIVES)} ${R.pick(NOUNS)}`;
-    const meta: Omit<LevelData, 'grid' | 'inv'> = { id: `gen${GENERATOR_VERSION}-${opts.tier}-${opts.seed >>> 0}`, name };
-    if (spec.bends === 90) meta.bends = 90;
-    const level = toLevelData(got.board, meta);
-    if (level.inv) for (const [k, v] of Object.entries(level.inv)) if (v === 0) delete level.inv[k];
-    // Round-trip through the parser so what we hand out is exactly what players load.
-    parseLevel(level);
-    return { level, tier: opts.tier, seed: opts.seed >>> 0, attempt, difficulty: got.result.difficulty, solution: s };
+    const sig = signature(got.board, s);
+    if (opts.avoid?.(sig)) continue;
+    found++;
+    const here: [number, number] = [got.result.nodes, s.decisions];
+    if (!best || closerToMiddle(here, [best.result.nodes, best.result.solutions[0]!.decisions], spec.band)) best = { ...got, attempt, sig };
+    if (inBand(here[0], here[1], spec.aim)) break;
   }
-  return null;
+  if (!best) return null;
+  const s = best.result.solutions[0]!;
+  const name = opts.name ?? levelName(opts.seed >>> 0, 0);
+  const meta: Omit<LevelData, 'grid' | 'inv'> = { id: `gen${GENERATOR_VERSION}-${opts.tier}-${opts.seed >>> 0}`, name };
+  if (spec.bends === 90) meta.bends = 90;
+  const level = toLevelData(best.board, meta);
+  if (level.inv) for (const [k, v] of Object.entries(level.inv)) if (v === 0) delete level.inv[k];
+  // Round-trip through the parser so what we hand out is exactly what players load.
+  parseLevel(level);
+  return { level, tier: opts.tier, seed: opts.seed >>> 0, attempt: best.attempt, difficulty: best.result.difficulty, solution: s, signature: best.sig };
 }

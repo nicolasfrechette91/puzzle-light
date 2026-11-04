@@ -190,9 +190,12 @@ const makeEndless = (tier: Tier, n: number): Promise<GenOutput> => {
   const key = `${tier}/${n}`;
   let p = made.get(key);
   if (!p) {
-    p = gen.request({ kind: 'endless', tier, n });
+    p = gen.request({ kind: 'endless', tier, n, history: endless.history(tier) });
     made.set(key, p);
-    p.catch(() => made.delete(key));
+    p.then(
+      (out) => out.history && endless.setHistory(tier, out.history),
+      () => made.delete(key),
+    );
   }
   return p;
 };

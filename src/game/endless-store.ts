@@ -1,8 +1,11 @@
-import { TIERS, type Tier } from '../core/generate';
+import { GENERATOR_VERSION, TIERS, type Tier } from '../core/generate';
 import { readJson, writeJson } from './local-store';
 
 /** Endless mode progress: the tier last played, and per tier the level to play next and how many were solved. */
 const KEY = 'puzzle-light:endless';
+/** Solution ids per tier (easy only, D-073); they belong to one generator version. */
+const HISTORY_KEY = `puzzle-light:endless-history:v${GENERATOR_VERSION}`;
+const isId = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 0xffffffff;
 
 interface TierState {
   next: number;
@@ -18,6 +21,7 @@ const count = (v: unknown, min: number): number => (typeof v === 'number' && Num
 
 export class EndlessStore {
   private data: Stored;
+  private readonly histories: Partial<Record<Tier, number[]>> = {};
 
   constructor() {
     const d = readJson<Partial<Stored>>(KEY);
@@ -27,6 +31,24 @@ export class EndlessStore {
       tiers[t] = { next: count(s?.next, 1), solved: count(s?.solved, 0) };
     }
     this.data = { tier: d?.tier && TIERS.includes(d.tier) ? d.tier : 'easy', tiers };
+    const h = readJson<Partial<Record<Tier, unknown>>>(HISTORY_KEY);
+    for (const t of TIERS) {
+      const ids = h?.[t];
+      // Anything malformed is dropped (D-071): the worker then rebuilds it, just more slowly.
+      if (Array.isArray(ids) && ids.every(isId)) this.histories[t] = ids;
+    }
+  }
+
+  /** The saved solution history of a tier (see EndlessSeries.history). */
+  history(t: Tier): number[] {
+    return this.histories[t] ?? [];
+  }
+
+  /** Keep a longer history from the worker. */
+  setHistory(t: Tier, ids: number[]): void {
+    if (ids.length <= this.history(t).length) return;
+    this.histories[t] = ids;
+    writeJson(HISTORY_KEY, this.histories);
   }
 
   get tier(): Tier {

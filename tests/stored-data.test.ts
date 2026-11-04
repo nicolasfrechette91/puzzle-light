@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DailyResult } from '../src/core/daily';
 import { DailyStore } from '../src/game/daily-store';
+import { EndlessStore } from '../src/game/endless-store';
 import { GENERATOR_VERSION } from '../src/core/generate';
 import { Progress } from '../src/game/progress';
 import { loadMyLevels } from '../src/editor/storage';
@@ -109,5 +110,26 @@ describe('my levels', () => {
     expect(mine[0]!.note).toBeUndefined();
     expect(mine[0]!.par).toBeUndefined();
     expect(mine[1]).toMatchObject({ id: 'u-1', note: 'hi', par: 1 });
+  });
+});
+
+describe('endless history (D-073)', () => {
+  const key = `puzzle-light:endless-history:v${GENERATOR_VERSION}`;
+
+  it('keeps a well-formed history and only ever grows it', () => {
+    const data = stubStorage();
+    const e = new EndlessStore();
+    expect(e.history('easy')).toEqual([]);
+    e.setHistory('easy', [5, 6, 7]);
+    e.setHistory('easy', [5]); // a shorter one (e.g. from an older tab) is ignored
+    expect(new EndlessStore().history('easy')).toEqual([5, 6, 7]);
+    expect(JSON.parse(data.get(key)!)).toEqual({ easy: [5, 6, 7] });
+  });
+
+  it('drops a malformed history', () => {
+    for (const bad of ['{"easy":[1,"x"]}', '{"easy":[-1]}', '{"easy":[4294967296]}', '{"easy":3}', '[1]']) {
+      stubStorage({ [key]: bad });
+      expect(new EndlessStore().history('easy'), bad).toEqual([]);
+    }
   });
 });
