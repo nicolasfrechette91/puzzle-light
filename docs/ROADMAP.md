@@ -16,8 +16,8 @@ by a short summary with the new decision entries.
 | 7 | GitHub Pages deploy, README with GIF/screenshots | **done** |
 | 8 | Generator: seeded levels, unique, every piece matters, difficulty band | **done** |
 | 9 | Daily puzzle: date seed, streak, time, spoiler-free share | **done** |
-| 10 | Endless mode: easy / medium / hard | next |
-| 11 | World 6 (8+ combination levels) + 5 expert bonus levels | |
+| 10 | Endless mode: easy / medium / hard | **done** |
+| 11 | World 6 (8+ combination levels) + 5 expert bonus levels | next |
 | 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | |
 
 ## M1: delivered
@@ -156,6 +156,22 @@ All design decisions, with the policy used to make them, live in
 * Tests: dates, determinism, the next 14 dailies are all valid, par counting,
   streak rules and share text. The browser flow was checked across two days
   with Playwright's clock.
+
+## M10: delivered
+
+* `#endless=easy|medium|hard` (also the **Endless** card in the level select,
+  with the solved count per tier): a numbered sequence of generated levels per
+  tier, the same for everyone, resuming where you stopped (D-058).
+* **Skip** beside the status line, **Next puzzle** after a solve, and the next
+  puzzle prefetched in the worker (D-059). No timer or score: the daily is the
+  scored mode.
+* `src/core/endless.ts` (pure), `src/game/endless-store.ts`, shared guarded
+  storage helpers (`local-store.ts`).
+* Phone header fits generated modes (D-060).
+* Tests: seeds distinct per tier and number, determinism, the first levels of
+  each tier are unique and in their difficulty band. Browser checks covered
+  solving, skipping (a double click counts once), reload, tier switches and the
+  phone layout.
 
 ## Open questions for the owner
 

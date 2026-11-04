@@ -36,12 +36,17 @@ src/
     random.ts           seeded PRNG (mulberry32) + string → seed (FNV-1a)
     generate.ts         seeded procedural levels, verified by the solver
     daily.ts            daily puzzle: date → seed, move par, streak rules, share text
+    endless.ts          endless mode: (tier, n) → seed → level
   game/                 browser-only
     game.ts             controller: level, board, history, trace, win state
     layout.ts           responsive geometry + hit testing
     input.ts            pointer/keyboard → game actions (tap, drag, long-press)
     render.ts           canvas drawing
-    hud.ts              DOM toolbar, notes, win banner
+    hud.ts              DOM toolbar, notes, win banner; per-mode hooks (daily, endless)
+    level-select.ts     level sheet: daily and endless cards, worlds, par marks
+    generate.worker.ts  level generation off the main thread (+ gen-client.ts)
+    daily-store.ts      daily results, streak, today's cached level
+    endless-store.ts    endless progress per tier
   editor/               level editor (lazy-loaded)
     model.ts            DOM-free editable level with undo; problem() explains what's missing
     editor-ui.ts        canvas painting + side panel; auto solver check; save/share/test

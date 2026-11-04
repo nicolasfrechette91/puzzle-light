@@ -1,6 +1,7 @@
 import { type DailyResult, streakAfterSolve, streakOn, type StreakState } from '../core/daily';
 import { GENERATOR_VERSION } from '../core/generate';
 import type { LevelData } from '../core/level';
+import { readJson as read, writeJson as write } from './local-store';
 
 /**
  * Daily puzzle storage: first result per date, the streak, and today's level
@@ -17,23 +18,6 @@ interface Stored {
 export interface CachedDaily {
   level: LevelData;
   movesPar: number;
-}
-
-function read<T>(key: string): T | null {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: unknown): void {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // not remembered
-  }
 }
 
 /** The player's local calendar date (D-054). */

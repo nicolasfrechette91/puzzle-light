@@ -76,6 +76,13 @@ Puzzle Light · Daily #3
 9 moves (par 5) · 1:23 · 🔥3
 ```
 
+## Endless mode
+
+Pick **Easy**, **Medium** or **Hard** on the **Endless** card for a numbered
+stream of generated puzzles at that difficulty (`#endless=hard`). Each one is
+proven to have exactly one solution. Skip any you don't fancy; you resume
+where you left off.
+
 ## Level editor
 
 Open the editor with the pencil button, or go to `#edit`.

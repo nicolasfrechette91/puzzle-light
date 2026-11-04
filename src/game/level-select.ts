@@ -1,3 +1,4 @@
+import type { Tier } from '../core/generate';
 import { PACKS } from '../levels';
 import type { Game } from './game';
 import { UNLOCK_THRESHOLD, unlockedWorlds, type Progress } from './progress';
@@ -20,6 +21,9 @@ export class LevelSelect {
   /** Today's daily puzzle, for the card at the top (null hides it). */
   daily: () => { title: string; status: string; solved: boolean; streak: number; best: number } | null = () => null;
   onDaily: () => void = () => {};
+  /** Endless mode, for the card under the daily one (null hides it). */
+  endless: () => { title: string; status: string; tiers: { tier: Tier; label: string; tip: string; current: boolean }[] } | null = () => null;
+  onEndless: (tier: Tier) => void = () => {};
 
   constructor(game: Game, progress: Progress) {
     this.game = game;
@@ -71,6 +75,27 @@ export class LevelSelect {
       const play = Object.assign(document.createElement('button'), { type: 'button', className: 'pill', textContent: d.solved ? 'Replay' : 'Play' });
       play.addEventListener('click', () => this.onDaily());
       card.append(text, play);
+      cards.push(card);
+    }
+    const e = this.endless();
+    if (e) {
+      const card = document.createElement('section');
+      card.className = 'mode-card';
+      const text = document.createElement('div');
+      text.append(
+        Object.assign(document.createElement('h3'), { textContent: e.title }),
+        Object.assign(document.createElement('p'), { textContent: e.status }),
+      );
+      const tiers = document.createElement('div');
+      tiers.className = 'tier-pills';
+      tiers.setAttribute('role', 'group');
+      tiers.setAttribute('aria-label', 'Endless difficulty');
+      for (const t of e.tiers) {
+        const b = Object.assign(document.createElement('button'), { type: 'button', className: `pill small${t.current ? ' on' : ''}`, textContent: t.label, title: t.tip });
+        b.addEventListener('click', () => this.onEndless(t.tier));
+        tiers.append(b);
+      }
+      card.append(text, tiers);
       cards.push(card);
     }
     this.body.replaceChildren(

@@ -436,3 +436,32 @@ Process:
   * Meeting par shows `✦ par`.
   * The native share sheet is used on touch devices, the clipboard elsewhere (the button confirms "Copied ✓").
 * **Reason:** Like Wordle, it shows the journey and never the answer: nothing about positions or pieces.
+
+### D-058 · Endless mode: a numbered sequence per tier (M10, by: claude)
+* **Question:** Where do endless levels come from, and what does a player resume after a reload?
+* **Options:**
+  * A random seed per level (nothing to resume; can't be reproduced or tested).
+  * A numbered sequence per tier (Easy #1, #2, …, the same for everyone).
+* **Choice:** a numbered sequence per tier.
+  * **Seed:** level *n* of a tier uses `FNV-1a("puzzle-light/endless/v<GENERATOR_VERSION>/<tier>/<n>")`.
+  * **Tiers:** easy, medium and hard are the generator tiers (D-052), each defined by its difficulty-score band, so the tier you pick is the difficulty you get.
+  * **Saved:** the number to play next per tier, the solved count per tier and the last tier, in localStorage. Reloading reopens the same puzzle.
+  * **Fallback:** a seed that yields no level is passed over.
+* **Reason:** It's deterministic and testable (a test checks validity and difficulty bands for the first levels of each tier), it resumes exactly, and needs no randomness anywhere.
+
+### D-059 · Endless mode: skip, counts and pace (M10, by: claude)
+* **Question:** How does a player move on, and what is tracked?
+* **Choice:**
+  * **Skip:** a labelled **Skip** pill beside the status line while unsolved (N or ] also skip). It moves on with no penalty; a skipped number isn't offered again.
+  * **After a solve:** "Next puzzle".
+  * **Tracked:** only the solved count per tier, shown on the tier pills in the level select. No timer, streak or par: the daily is the scored mode, endless is for unwinding.
+  * **Hints:** work as in the campaign.
+  * **Speed:** the next puzzle is generated in the worker while the current one is played. Hard took about 0.5 s cold, and the next appears at once.
+* **Reason:** Calm and clear (policy 1). A text button explains itself, where a new toolbar icon would not. On phones the toolbar had no room for another button either.
+
+### D-060 · Phone header in generated modes (M10, by: claude)
+* **Question:** "Endless · Medium #1" plus a generated name didn't fit the phone header.
+* **Choice:**
+  * **Prefix:** the "Endless · " prefix is hidden at ≤420 px, leaving "Medium #1".
+  * **Names:** a name that still doesn't fit ends in an ellipsis instead of being cut mid-letter (this also fixes long campaign names).
+* **Reason:** The tier and number identify the puzzle; the mode is clear from the level select and the Skip button.

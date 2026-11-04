@@ -17,12 +17,16 @@ export type PlayMode = 'campaign' | 'test' | 'shared' | 'daily' | 'endless';
 export interface ModeHooks {
   /** Replaces the world · level label. */
   label?: () => string;
+  /** Shown before the label where there is room (hidden on phones). */
+  labelPrefix?: string;
   /** Shown in the status line while playing (after hints and notices). */
   status?: () => string | null;
   /** Replaces the solved banner text. */
   solved?: () => string;
   /** Replaces "Next level". */
   action?: () => { label: string; run: () => void } | null;
+  /** A "Skip" button beside the status line while unsolved (endless mode); N and ] press it. */
+  skip?: () => void;
 }
 
 /** DOM toolbar, level text, solved banner and keyboard shortcuts. */
@@ -49,6 +53,7 @@ export class Hud {
     solved: $('#solved'),
     solvedText: $('#solved-text'),
     cont: $<HTMLButtonElement>('#btn-continue'),
+    skip: $<HTMLButtonElement>('#btn-skip'),
     prev: $<HTMLButtonElement>('#btn-prev'),
     next: $<HTMLButtonElement>('#btn-next'),
     undo: $<HTMLButtonElement>('#btn-undo'),
@@ -67,6 +72,7 @@ export class Hud {
     const { el } = this;
     el.prev.addEventListener('click', () => game.prev());
     el.next.addEventListener('click', () => game.next());
+    el.skip.addEventListener('click', () => this.hooks.skip?.());
     el.cont.addEventListener('click', () => {
       const action = this.hooks.action?.();
       if (action) action.run();
@@ -99,6 +105,11 @@ export class Hud {
     this.update();
   }
 
+  private next(): void {
+    if (this.hooks.skip) this.hooks.skip();
+    else this.game.next();
+  }
+
   /** Re-read state that lives outside the game (e.g. sound). */
   refresh(): void {
     this.update();
@@ -127,7 +138,7 @@ export class Hud {
       this.onSound();
       this.update();
     }
-    else if ((key === ']' || key === 'n') && !mod) g.next();
+    else if ((key === ']' || key === 'n') && !mod) this.next();
     else if (key === '[' || (key === 'p' && !mod)) g.prev();
     else if (key === 'enter' && g.solved && document.activeElement === document.body && !this.el.cont.hidden) this.el.cont.click();
     else if (key === 'escape') {
@@ -151,6 +162,7 @@ export class Hud {
           : world && n
             ? `${world.name} · ${n}`
             : `${g.index + 1} / ${g.levels.length}`;
+    if (this.hooks.labelPrefix) el.num.prepend(Object.assign(document.createElement('span'), { className: 'label-prefix', textContent: this.hooks.labelPrefix }));
     const campaign = this.mode === 'campaign';
     const hub = campaign || this.mode === 'daily' || this.mode === 'endless';
     el.prev.hidden = el.next.hidden = !campaign;
@@ -172,6 +184,7 @@ export class Hud {
     el.note.textContent = g.hintShown ? describeHint(g, g.hintShown) : this.notice || this.hooks.status?.() || (g.level.note ?? '');
     el.note.classList.toggle('hinting', !!g.hintShown);
     el.note.hidden = g.solved;
+    el.skip.hidden = g.solved || !this.hooks.skip;
     el.solved.hidden = !g.solved;
     if (g.solved) {
       const par = g.level.par;

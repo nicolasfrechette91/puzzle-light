@@ -1,10 +1,11 @@
 /// <reference lib="webworker" />
 import { dailyLevel, movesPar } from '../core/daily';
-import { generate, type Generated, type Tier } from '../core/generate';
+import { endlessLevel } from '../core/endless';
+import type { Generated, Tier } from '../core/generate';
 import { parseLevel } from '../core/level';
 
 /** Level generation off the main thread (daily puzzle, endless mode). */
-export type GenRequest = { id: number; kind: 'daily'; date: string } | { id: number; kind: 'tier'; tier: Tier; seed: number };
+export type GenRequest = { id: number; kind: 'daily'; date: string } | { id: number; kind: 'endless'; tier: Tier; n: number };
 
 export interface GenOutput {
   generated: Generated;
@@ -20,7 +21,7 @@ self.onmessage = (e: MessageEvent<GenRequest>) => {
   const req = e.data;
   let reply: GenResponse;
   try {
-    const g = req.kind === 'daily' ? dailyLevel(req.date) : generate({ seed: req.seed, tier: req.tier });
+    const g = req.kind === 'daily' ? dailyLevel(req.date) : endlessLevel(req.tier, req.n);
     if (!g) throw new Error('no level found for this seed');
     reply = { id: req.id, ok: true, out: { generated: g, movesPar: movesPar(parseLevel(g.level), g.solution) } };
   } catch (err) {

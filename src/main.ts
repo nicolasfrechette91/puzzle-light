@@ -1,11 +1,14 @@
 import './style.css';
 import { dailyNumber, formatTime, shareText, type DailyResult } from './core/daily';
+import { TIERS, type Tier } from './core/generate';
 import type { LevelData } from './core/level';
 import { decodeLevel } from './core/share';
 import type { EditorUI } from './editor/editor-ui';
 import { Sound } from './game/audio';
 import { DailyStore, todayLocal, untilTomorrow } from './game/daily-store';
+import { EndlessStore } from './game/endless-store';
 import { GenClient } from './game/gen-client';
+import type { GenOutput } from './game/generate.worker';
 import { Game } from './game/game';
 import { Hud, type ModeHooks } from './game/hud';
 import { Input } from './game/input';
@@ -155,6 +158,86 @@ async function openDaily(): Promise<void> {
   play('daily', [cached.level], 0, dailyHooks(session));
 }
 
+// ── endless mode (D-058) ──
+
+const endless = new EndlessStore();
+const TIER_NAME: Record<Tier, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const TIER_TIP: Record<Tier, string> = {
+  easy: 'Small boards, mirrors, right angles',
+  medium: 'Diagonals, splitters and filters',
+  hard: 'Three pieces, prisms, more targets',
+};
+
+interface EndlessRun {
+  tier: Tier;
+  n: number;
+  /** Solved or skipped, so it has been counted. */
+  done: boolean;
+}
+let run: EndlessRun | null = null;
+/** Bumped by every request; a slower, older request then doesn't win. */
+let endlessToken = 0;
+/** Levels made or being made: the current one and the next (prefetched). */
+const made = new Map<string, Promise<GenOutput>>();
+const makeEndless = (tier: Tier, n: number): Promise<GenOutput> => {
+  const key = `${tier}/${n}`;
+  let p = made.get(key);
+  if (!p) {
+    p = gen.request({ kind: 'endless', tier, n });
+    made.set(key, p);
+    p.catch(() => made.delete(key));
+  }
+  return p;
+};
+
+async function openEndless(tier: Tier): Promise<void> {
+  const token = ++endlessToken;
+  const hash = location.hash;
+  endless.tier = tier;
+  let n = endless.next(tier);
+  let out: GenOutput | null = null;
+  const slow = window.setTimeout(() => hud.say('Preparing a puzzle…'), 150);
+  for (let tries = 0; tries < 5 && !out; tries++) {
+    try {
+      out = await makeEndless(tier, n);
+    } catch {
+      endless.finish(tier, n, false); // a seed with no level: move past it
+      n++;
+    }
+  }
+  window.clearTimeout(slow);
+  if (token !== endlessToken || location.hash !== hash) return;
+  if (!out) {
+    hud.say('No puzzle could be made just now; try again in a moment.');
+    return;
+  }
+  run = { tier, n, done: false };
+  play('endless', [out.generated.level], 0, endlessHooks(run));
+  for (const k of made.keys()) if (k !== `${tier}/${n}`) made.delete(k);
+  makeEndless(tier, n + 1).catch(() => {}); // ready by the time this one is solved
+}
+
+function endlessHooks(r: EndlessRun): ModeHooks {
+  const name = TIER_NAME[r.tier];
+  return {
+    labelPrefix: 'Endless · ',
+    label: () => `${name} #${r.n}`,
+    status: () => (endless.solved(r.tier) < 2 ? 'A fresh puzzle every time.' : null),
+    solved: () => {
+      const k = endless.solved(r.tier);
+      return `Solved · ${k} ${name.toLowerCase()} puzzle${k === 1 ? '' : 's'} so far`;
+    },
+    action: () => ({ label: 'Next puzzle', run: () => void openEndless(r.tier) }),
+    skip: () => {
+      if (!r.done) {
+        r.done = true;
+        endless.finish(r.tier, r.n, false);
+      }
+      void openEndless(r.tier);
+    },
+  };
+}
+
 // The daily clock ticks in the status line.
 window.setInterval(() => {
   if (mode === 'daily' && session?.started && !session.result && !playView.hidden) hud.refresh();
@@ -223,6 +306,11 @@ game.on((e) => {
       daily.record(s.result); // the first completion of a date is the one that counts
       hud.refresh();
     }
+    if (mode === 'endless' && run && !run.done) {
+      run.done = true;
+      endless.finish(run.tier, run.n, true);
+      hud.refresh();
+    }
     if (mode === 'campaign') {
       const before = unlockedWorlds(PACKS, progress.solved);
       progress.markSolved(game.level.id, game.piecesUsed, game.hintsUsed);
@@ -277,6 +365,24 @@ select.daily = () => {
 select.onDaily = () => {
   select.close();
   location.hash = 'daily';
+};
+select.endless = () => ({
+  title: 'Endless',
+  status: 'Generated puzzles, as many as you like. Pick a difficulty:',
+  tiers: TIERS.map((t) => {
+    const k = endless.solved(t);
+    return {
+      tier: t,
+      label: k ? `${TIER_NAME[t]} · ${k}` : TIER_NAME[t],
+      tip: `${TIER_TIP[t]} · ${k} solved`,
+      current: mode === 'endless' && run?.tier === t,
+    };
+  }),
+});
+select.onEndless = (t) => {
+  select.close();
+  if (mode === 'endless' && run?.tier === t) return;
+  location.hash = `endless=${t}`;
 };
 document.querySelector('#levels-edit')!.addEventListener('click', () => {
   select.close();
@@ -345,6 +451,9 @@ function route(): void {
     play('test', [testLevel]);
   } else if (hash === 'daily') {
     void openDaily();
+  } else if (hash === 'endless' || hash.startsWith('endless=')) {
+    const t = hash.slice('endless='.length) as Tier;
+    void openEndless(TIERS.includes(t) ? t : endless.tier);
   } else {
     play('campaign', ALL_LEVELS, campaignIndex);
   }
@@ -368,5 +477,5 @@ requestAnimationFrame(frame);
 
 // Dev-only handle for automated browser checks; stripped from production builds.
 if (import.meta.env.DEV) {
-  (window as unknown as Record<string, unknown>).__pl = { game, input, layout: () => layout, editor: () => editor, progress, sound, select, daily, session: () => session };
+  (window as unknown as Record<string, unknown>).__pl = { game, input, layout: () => layout, editor: () => editor, progress, sound, select, daily, session: () => session, endless, run: () => run };
 }
