@@ -20,6 +20,15 @@ export class SolverClient {
         done(e.data);
       }
     };
+    // A worker that fails to load or crashes reports an error instead of "Solving…" forever (D-072).
+    w.onerror = (e: ErrorEvent) => {
+      e.preventDefault();
+      w.terminate();
+      if (this.worker === w) this.worker = null;
+      const done = this.pending;
+      this.pending = null;
+      done?.({ id: this.seq, ok: false, error: `The solver stopped: ${e.message || 'it failed to load'}.` });
+    };
     return w;
   }
 

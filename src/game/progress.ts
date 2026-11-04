@@ -1,4 +1,5 @@
 import type { LevelData } from '../core/level';
+import { isCount, isRecord, readJson, writeJson } from './local-store';
 
 /** Levels to solve in a world to open the next one (D-036). */
 export const UNLOCK_THRESHOLD = 6;
@@ -77,26 +78,29 @@ interface Stored {
   last?: string;
 }
 
-/** Progress saved in localStorage. Every access is guarded; failures just forget. */
-export class Progress {
-  private data: Stored = { levels: {} };
-
-  constructor() {
-    try {
-      const raw = window.localStorage.getItem(KEY);
-      const parsed = raw ? (JSON.parse(raw) as Stored) : null;
-      if (parsed && typeof parsed.levels === 'object') this.data = parsed;
-    } catch {
-      // start fresh
+/** Stored progress with anything malformed dropped: only solved levels, with valid counts (D-071). */
+function clean(raw: unknown): Stored {
+  const out: Stored = { levels: {} };
+  if (!isRecord(raw)) return out;
+  if (isRecord(raw.levels)) {
+    for (const [id, p] of Object.entries(raw.levels)) {
+      if (!isRecord(p) || p.solved !== true) continue;
+      const level: LevelProgress = { solved: true };
+      if (isCount(p.best)) level.best = p.best;
+      if (isCount(p.hints)) level.hints = p.hints;
+      out.levels[id] = level;
     }
   }
+  if (typeof raw.last === 'string') out.last = raw.last;
+  return out;
+}
+
+/** Progress saved in localStorage. Every access is guarded; failures just forget. */
+export class Progress {
+  private data: Stored = clean(readJson(KEY));
 
   private save(): void {
-    try {
-      window.localStorage.setItem(KEY, JSON.stringify(this.data));
-    } catch {
-      // not remembered
-    }
+    writeJson(KEY, this.data);
   }
 
   get(id: string): LevelProgress | undefined {

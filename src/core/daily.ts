@@ -16,6 +16,9 @@ export const DAILY_TIER: Tier = 'medium';
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/** A `YYYY-MM-DD` date string, as the daily functions expect. */
+export const isDate = (s: unknown): s is string => typeof s === 'string' && DATE_RE.test(s);
+
 /** Days since 1970-01-01 for a calendar date (no time zones involved). */
 export function dayNumber(date: string): number {
   const m = DATE_RE.exec(date);

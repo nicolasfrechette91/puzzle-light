@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLevel } from '../src/core/level';
+import { parseLevel, type LevelData } from '../src/core/level';
 import { solve } from '../src/core/solver';
 import { EditorModel, effectiveLock, type Brush } from '../src/editor/model';
 import { ALL_LEVELS } from '../src/levels';
@@ -85,6 +85,25 @@ describe('EditorModel', () => {
     expect(m.board.cells.filter(Boolean)).toHaveLength(0);
     m.redo();
     expect(m.board.cells.filter(Boolean)).toHaveLength(3);
+  });
+
+  it('loads imported or stored JSON with mistyped fields as a usable level (D-070)', () => {
+    // A hand-written import without an id used to break Save; a numeric name or note broke every edit.
+    const m = new EditorModel({ grid: ['Er0 . Tr'], name: 5, note: 3, par: 'x' } as unknown as LevelData);
+    expect(m.meta).toMatchObject({ id: 'draft', name: 'Untitled', note: '' });
+    expect(m.meta.par).toBeUndefined();
+    m.paint(1, brush('wall'));
+    expect(m.toLevel()).toMatchObject({ id: 'draft', name: 'Untitled', grid: ['Er0 #   Tr'] });
+  });
+
+  it('refuses unreadable JSON without changing the level', () => {
+    const m = EditorModel.blank(3, 3);
+    m.paint(0, brush('wall'));
+    const before = m.toLevel();
+    for (const bad of [[1, 2], { grid: 'Er0 . Tr' }, { grid: [1] }, { grid: ['Er0 Zz'] }, null]) {
+      expect(() => m.replace(bad as unknown as LevelData)).toThrow();
+      expect(m.toLevel()).toEqual(before);
+    }
   });
 
   it('produces levels the solver can check', () => {

@@ -201,10 +201,72 @@ All design decisions, with the policy used to make them, live in
 
 All milestones in this plan are done.
 
+## Audit (after M12)
+
+An outside review of code quality, the generator, edge cases and performance.
+
+**Fixed.** Each fix has a failing test first. The editor-touch and `?l=` fixes
+live in DOM code, so they were reproduced and re-checked with a scripted browser.
+
+* Hand-made share links with a mistyped `id`, `note` or `par` broke the HUD on
+  every move, or the editor on "edit a copy"; they are now repaired or dropped
+  (D-070).
+* Corrupt or old localStorage no longer stops the game, the level select, the
+  editor or today's daily from opening (D-071).
+* Editor: importing JSON without an `id` made **Save** fail silently, and a
+  non-string name or note broke every later edit (D-070).
+* Editor on touch: drag-painting walls, glass or the eraser skipped the cell
+  the drag started on.
+* A worker that failed to load left "Looking for a hint…", "Preparing…" or
+  "Solving…" up forever (D-072).
+* `?l=1.5` crashed on load, and `?l=abc` opened every world; both now resume
+  normally.
+
+**Generator**, 50 dailies from #1 and endless #1–30 per tier, every level
+re-verified (unique, in band, not solved at the start):
+
+| set | made | difficulty min / median / max | time median / p90 / max |
+|---|---|---|---|
+| daily (medium) | 50 / 50 | 10.0 / 11.3 / 15.0 | 66 / 267 / 863 ms |
+| endless easy | 30 / 30 | 5.0 / 7.0 / 8.6 | 0.6 / 2 / 5 ms |
+| endless medium | 30 / 30 | 10.0 / 12.0 / 14.6 | 68 / 299 / 390 ms |
+| endless hard | 30 / 30 | 14.2 / 16.2 / 18.3 | 337 / 580 / 1290 ms |
+
+A wider scan (3,000 easy, 400 medium and 150 hard seeds) found no failures
+and no level that starts solved.
+
+**Performance** (headless Chromium with software rendering at 1280×800, so
+only the ratios matter): tracing a 24×24 board with 2,665 beam segments takes
+0.15 ms. A frame takes 13 ms on level 1-1, 23 ms on a 10×10 stress board and
+49 ms on the 24×24 one. On 1-1, 11 of those 13 ms are the bloom, which scales
+the whole viewport twice. Bundle: main 93.0 kB (31.5 kB gzip), editor 19.8 kB
+(6.9 kB), workers 10.6–18.0 kB each, CSS 10.3 kB (2.9 kB).
+
 ## Open questions for the owner
 
 * ~~Licence (D-046)~~: MIT, chosen by the owner (D-048).
 * ~~First deployment~~: Pages uses the GitHub Actions source, and `main` was created from the development branch; every push to `main` deploys to https://nicolasfrechette91.github.io/puzzle-light/.
+* **Audit recommendations** (subjective, so left unchanged). Any generator
+  change needs a `GENERATOR_VERSION` bump, which changes every daily and endless level.
+  * **Easy floor:** 10 of the first 30 easy levels score exactly 5.0: one
+    mirror, placed where the emitter's row meets the target's column. Easy
+    #15 and #30 are the same puzzle with different walls. Options: raise the
+    floor to 6, or skip a level whose solution repeats one earlier in the tier.
+  * **Bands skew low:** 19 of 50 dailies score 10.x and only one scores 15.
+    The tidy pass stops as soon as a level is in band; to make "medium" feel
+    medium, aim for the middle of the band.
+  * **Clutter:** walls and glass reach 34% of the board (daily 2026-11-11:
+    12 of 35 cells). Consider a cap.
+  * **Names:** 20 × 20 words; 16 names repeat across 140 levels (Hard #1, #3
+    and #24 are all "Gentle Meridian").
+  * **Idle frames:** the canvas redraws at the full frame rate even when
+    nothing moves, and the bloom scales the whole viewport. Clipping the bloom
+    to the board and slowing down when idle would save battery on phones.
+  * **Hint queue:** switching levels quickly queues one solve per level in the
+    hint worker, so the current level waits behind stale ones. Superseding
+    stale requests, as the editor's solver does, would fix that.
+  * **`#edit=<bad code>`** quietly opens the draft, where `#play=` explains
+    what went wrong.
 
 ## Handoff notes
 

@@ -65,6 +65,17 @@ export interface EditorHost {
   shareUrl(code: string): string;
 }
 
+/** The saved draft, or a blank level if there is none or it can't be read (D-071). */
+function draftModel(): EditorModel {
+  const draft = loadDraft();
+  try {
+    if (draft) return new EditorModel(draft);
+  } catch {
+    // unreadable (hand-edited, or from another version): start fresh
+  }
+  return EditorModel.blank();
+}
+
 type CheckState =
   | { state: 'idle' }
   | { state: 'running'; key: string }
@@ -95,8 +106,7 @@ export class EditorUI {
 
   constructor(host: EditorHost) {
     this.host = host;
-    const draft = loadDraft();
-    this.model = draft ? new EditorModel(draft) : EditorModel.blank();
+    this.model = draftModel();
     this.renderer = new Renderer(this.canvas);
     this.view = { board: this.model.board, trace: trace(this.model.board), solved: false, hintShown: null };
     this.layout = computeLayout(1, 1, 1, 1, 0);
@@ -220,10 +230,13 @@ export class EditorUI {
       if (e.pointerType === 'mouse') this.input.hoverCell = cell;
       const s = this.stroke;
       if (!s || s.pointer !== e.pointerId || cell < 0 || cell === s.cell) return;
+      const from = s.cell;
       s.cell = cell;
       // Drag-painting is for terrain and erasing; pieces go one click at a time.
       const k = e.buttons & 2 ? 'erase' : this.brush.kind;
       if (k === 'erase' || k === 'wall' || k === 'glass') {
+        // A mouse paints its first cell on press; a touch waits to see whether it's a tap, so paint it now.
+        if (s.touch && !s.moved) this.model.paint(from, { ...this.brush, kind: k }, s.id);
         s.moved = true;
         this.model.paint(cell, { ...this.brush, kind: k }, s.id);
       }

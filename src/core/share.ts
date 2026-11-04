@@ -1,4 +1,4 @@
-import { parseLevel, type LevelData } from './level';
+import { checkLevelData, parseLevel, type LevelData } from './level';
 
 /**
  * Share codes: a level as minified JSON, UTF-8, base64url, prefixed with a
@@ -45,10 +45,12 @@ export function decodeLevel(code: string): LevelData {
   } catch {
     throw new ShareError('share code is damaged');
   }
-  const d = data as Partial<LevelData>;
-  if (!d || typeof d !== 'object' || typeof d.name !== 'string' || !Array.isArray(d.grid) || !d.grid.every((r) => typeof r === 'string'))
+  let level: LevelData;
+  try {
+    level = strip(checkLevelData(data, { id: 'shared', name: 'Untitled' }));
+  } catch {
     throw new ShareError('share code does not contain a level');
-  const level = strip({ id: typeof d.id === 'string' ? d.id : 'shared', ...d } as LevelData);
+  }
   try {
     parseLevel(level);
   } catch (e) {

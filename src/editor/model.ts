@@ -1,7 +1,7 @@
 import { Board, type Bends } from '../core/board';
 import type { Color } from '../core/color';
 import { History } from '../core/history';
-import { parseGrid, parseInventory, parseLevel, toLevelData, type LevelData } from '../core/level';
+import { checkLevelData, parseGrid, parseInventory, parseLevel, toLevelData, type LevelData } from '../core/level';
 import { KINDS, type Kind, type Lock, type Piece } from '../core/piece';
 import { slotKey } from '../core/token';
 import { trace } from '../core/trace';
@@ -40,8 +40,13 @@ export function effectiveLock(kind: Kind, lock: Lock): Lock {
 
 export const canGoInTray = (kind: Kind): boolean => !STRUCTURE.has(kind);
 
-/** Load level data without the play-time validation, so half-finished levels can be edited. */
-function loadLoose(level: LevelData): { board: Board; meta: Meta } {
+/**
+ * Load level data without the play-time validation, so half-finished levels
+ * can be edited. Drafts, imports and saved levels may be hand-edited or old,
+ * so their field types are checked first (D-070).
+ */
+function loadLoose(data: LevelData): { board: Board; meta: Meta } {
+  const level = checkLevelData(data, { id: 'draft', name: 'Untitled' });
   const grid = parseGrid(level.grid);
   const inv = parseInventory(level.inv).filter((s) => s.count > 0);
   const bends: Bends = level.bends === 90 ? 90 : 45;

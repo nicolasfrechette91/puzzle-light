@@ -8,7 +8,7 @@ import { Sound } from './game/audio';
 import { DailyStore, todayLocal, untilTomorrow } from './game/daily-store';
 import { EndlessStore } from './game/endless-store';
 import type { GenOutput } from './game/generate.worker';
-import { generator, hintSolver } from './game/worker-client';
+import { generator, hintSolver, WorkerFailure } from './game/worker-client';
 import { Game } from './game/game';
 import { Hud, type ModeHooks } from './game/hud';
 import { Input } from './game/input';
@@ -35,8 +35,8 @@ const campaignOpen = (i: number): boolean => openWorlds()[worldOf[i] ?? 0] ?? fa
 
 // `?l=3` opens the third level directly (development); otherwise resume where the player left off.
 const param = new URLSearchParams(location.search).get('l');
-const devStart = param === null ? null : Number(param) - 1;
-const start = devStart !== null && Number.isFinite(devStart) ? devStart : resumeIndex(PACKS, progress.solved, progress.last, progress.parMet);
+const devStart = param !== null && Number.isInteger(Number(param)) ? Number(param) - 1 : null;
+const start = devStart ?? resumeIndex(PACKS, progress.solved, progress.last, progress.parMet);
 const game = new Game(ALL_LEVELS, start);
 game.isOpen = devStart === null ? campaignOpen : () => true;
 // Hints solve in their own worker, so they never wait behind level generation (D-061).
@@ -207,7 +207,8 @@ async function openEndless(tier: Tier): Promise<void> {
   for (let tries = 0; tries < 5 && !out; tries++) {
     try {
       out = await makeEndless(tier, n);
-    } catch {
+    } catch (e) {
+      if (e instanceof WorkerFailure) break; // not this seed's fault: keep its number for next time
       endless.finish(tier, n, false); // a seed with no level: move past it
       n++;
     }

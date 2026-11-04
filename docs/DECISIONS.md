@@ -557,3 +557,30 @@ Process:
   * **The board:** keeps its keyboard cursor ring.
   * **Audit:** a scripted check tabs through the play view, the level sheet and the editor; every element showed a visible ring.
 * **Reason:** One rule can't miss new controls, and the audit proves it.
+
+### D-070 · Level data from outside the bundle is type-checked (audit, by: claude)
+* **Question:** Share links, drafts, saved levels and pasted JSON were trusted to have the right field types. A numeric `id` in a hand-made link broke the HUD on every move, a numeric `note` broke "edit a copy", and an import without an `id` broke **Save**. Reject such data, or repair it?
+* **Options:** reject anything mistyped; repair what is safe and reject the rest.
+* **Choice:** `checkLevelData` in the core, used by share codes and by every way into the editor (draft, import, My levels, `#edit=`):
+  * **Rejected:** a grid that isn't an array of strings, a tray that isn't an object.
+  * **Defaulted:** a missing or mistyped `id` ("shared" or "draft") or `name` ("Untitled").
+  * **Dropped:** a mistyped `note`, a `par` that isn't a whole number ≥ 0, a `bends` other than 90.
+* **Reason:** Metadata only labels a puzzle, so repairing it loses nothing; a wrong grid or tray would change the puzzle itself, which must stay exactly as verified (policy 2). One check in one place (policy 3).
+
+### D-071 · Saved data is cleaned when it is read (audit, by: claude)
+* **Question:** Corrupt or hand-edited localStorage could stop the game from starting (`{"levels": null}`), keep the level select from opening (a streak with an unreadable date), stop the editor from opening (an unreadable draft), or keep today's daily from loading (a damaged cached level). What should a reader do with data it can't trust?
+* **Options:** discard the whole record; keep what is valid, field by field.
+* **Choice:** field by field.
+  * Progress keeps solved levels and valid counts.
+  * The daily store keeps complete, dated results, and the streak's last date only if it is a real date.
+  * A cached daily level that doesn't load is generated again.
+  * A draft that doesn't load gives a blank level; unreadable saved levels are skipped.
+* **Reason:** Storage failures already mean "not remembered" (D-034); this extends that to bad contents, and one bad entry never costs a player the rest of their progress.
+
+### D-072 · A worker that fails says so (audit, by: claude)
+* **Question:** If a worker's file can't load (for example, a tab opened before a redeploy asks for a worker file that has since been replaced) or the worker crashes, its requests never settled. "Looking for a hint…", "Preparing today's puzzle…" or "Solving…" stayed up forever.
+* **Choice:** On a worker error every waiting request is rejected as a `WorkerFailure`, and the next request starts a fresh worker.
+  * Hints then solve on the main thread (the fallback from D-061).
+  * The daily and endless modes say the puzzle couldn't be made; endless skips a level number only for a seed with no level, never for a worker failure.
+  * The editor's check shows the error.
+* **Reason:** Every caller already handled a rejection; it just never came.

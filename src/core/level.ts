@@ -100,6 +100,32 @@ export function parseLevel(data: LevelData): Board {
   return new Board(grid.w, grid.h, grid.cells, inv, bends);
 }
 
+/**
+ * Level data from outside the bundle (share links, saved drafts, pasted JSON)
+ * with every field's type checked, so a number where a string belongs never
+ * reaches the HUD or the editor (D-070). `grid` must be an array of strings
+ * and `inv`, if present, an object; a mistyped `id` or `name` gets a default,
+ * and a mistyped `note`, `par` (a non-negative integer) or `bends` is dropped.
+ * Throws LevelError; the puzzle itself is checked by parseLevel.
+ */
+export function checkLevelData(d: unknown, defaults: { id: string; name: string }): LevelData {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new LevelError('not a level');
+  const o = d as Record<string, unknown>;
+  if (!Array.isArray(o.grid) || !o.grid.every((r) => typeof r === 'string')) throw new LevelError('grid must be an array of rows');
+  const inv = o.inv ?? undefined;
+  if (inv !== undefined && (typeof inv !== 'object' || Array.isArray(inv))) throw new LevelError('inv must map tokens to counts');
+  const level: LevelData = {
+    id: typeof o.id === 'string' ? o.id : defaults.id,
+    name: typeof o.name === 'string' ? o.name : defaults.name,
+    grid: [...(o.grid as string[])],
+  };
+  if (inv) level.inv = { ...(inv as Record<string, number>) };
+  if (typeof o.note === 'string' && o.note) level.note = o.note;
+  if (typeof o.par === 'number' && Number.isInteger(o.par) && o.par >= 0) level.par = o.par;
+  if (o.bends === 90) level.bends = 90;
+  return level;
+}
+
 /** Render a board's grid as aligned token rows. */
 export function formatGrid(b: Board): string[] {
   const toks = b.cells.map((p) => formatToken(p));

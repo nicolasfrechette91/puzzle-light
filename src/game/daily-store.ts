@@ -1,7 +1,7 @@
-import { type DailyResult, streakAfterSolve, streakOn, type StreakState } from '../core/daily';
+import { type DailyResult, isDate, streakAfterSolve, streakOn, type StreakState } from '../core/daily';
 import { GENERATOR_VERSION } from '../core/generate';
-import type { LevelData } from '../core/level';
-import { readJson as read, writeJson as write } from './local-store';
+import { checkLevelData, parseLevel, type LevelData } from '../core/level';
+import { isCount, isRecord, readJson as read, writeJson as write } from './local-store';
 
 /**
  * Daily puzzle storage: first result per date, the streak, and today's level
@@ -32,13 +32,30 @@ export function untilTomorrow(now = new Date()): string {
   return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
 }
 
-export class DailyStore {
-  private data: Stored;
+const isResult = (r: unknown, date: string): r is DailyResult =>
+  isRecord(r) &&
+  r.date === date &&
+  isCount(r.moves) &&
+  isCount(r.par) &&
+  isCount(r.hints) &&
+  typeof r.timeMs === 'number' &&
+  r.timeMs >= 0 &&
+  Array.isArray(r.progress) &&
+  r.progress.every((p) => p === 0 || p === 1 || p === 2);
 
-  constructor() {
-    const d = read<Stored>(KEY);
-    this.data = d && typeof d.results === 'object' && d.streak ? d : { streak: { current: 0, best: 0 }, results: {} };
-  }
+/** Stored daily data with anything malformed dropped, so date maths never sees a bad date (D-071). */
+function clean(raw: unknown): Stored {
+  const d = isRecord(raw) ? raw : {};
+  const s = isRecord(d.streak) ? d.streak : {};
+  const streak: StreakState = { current: isCount(s.current) ? s.current : 0, best: isCount(s.best) ? s.best : 0 };
+  if (isDate(s.last)) streak.last = s.last;
+  const results: Record<string, DailyResult> = {};
+  if (isRecord(d.results)) for (const [date, r] of Object.entries(d.results)) if (isDate(date) && isResult(r, date)) results[date] = r;
+  return { streak, results };
+}
+
+export class DailyStore {
+  private data: Stored = clean(read(KEY));
 
   result(date: string): DailyResult | undefined {
     return this.data.results[date];
@@ -62,8 +79,17 @@ export class DailyStore {
     return r;
   }
 
+  /** Today's level as cached, or null (generate it again) if there is none or it doesn't load. */
   cachedLevel(date: string): CachedDaily | null {
-    return read<CachedDaily>(`${LEVEL_PREFIX}v${GENERATOR_VERSION}:${date}`);
+    const c = read<unknown>(`${LEVEL_PREFIX}v${GENERATOR_VERSION}:${date}`);
+    if (!isRecord(c) || !isCount(c.movesPar)) return null;
+    try {
+      const level = checkLevelData(c.level, { id: `daily-${date}`, name: 'Daily' });
+      parseLevel(level);
+      return { level, movesPar: c.movesPar };
+    } catch {
+      return null;
+    }
   }
 
   cacheLevel(date: string, c: CachedDaily): void {

@@ -1,4 +1,4 @@
-import type { LevelData } from '../core/level';
+import { checkLevelData, type LevelData } from '../core/level';
 
 /**
  * Browser storage for the editor. Every access is guarded: private windows,
@@ -28,9 +28,17 @@ function write(key: string, value: unknown): boolean {
 export const loadDraft = (): LevelData | null => read<LevelData>(DRAFT);
 export const saveDraft = (level: LevelData): boolean => write(DRAFT, level);
 
+/** Saved levels, each with its field types checked; unreadable entries are skipped (D-071). */
 export function loadMyLevels(): LevelData[] {
-  const list = read<LevelData[]>(MINE);
-  return Array.isArray(list) ? list.filter((l) => l && typeof l.name === 'string' && Array.isArray(l.grid)) : [];
+  const list = read<unknown[]>(MINE);
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((l) => {
+    try {
+      return [checkLevelData(l, { id: 'draft', name: 'Untitled' })];
+    } catch {
+      return [];
+    }
+  });
 }
 
 export function saveMyLevel(level: LevelData): boolean {
