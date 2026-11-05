@@ -1,6 +1,7 @@
 import './style.css';
-import { dailyNumber, formatTime, shareText, type DailyResult } from './core/daily';
-import { TIERS, type Tier } from './core/generate';
+import { DAILY_TIER, dailyNumber, dailySeed, formatTime, movesVerdict, shareText, type DailyResult } from './core/daily';
+import { endlessSeed } from './core/endless';
+import { generatedId, TIERS, type Tier } from './core/generate';
 import type { LevelData } from './core/level';
 import { decodeLevel } from './core/share';
 import type { EditorUI } from './editor/editor-ui';
@@ -103,8 +104,9 @@ const gen = generator();
 
 interface DailySession {
   date: string;
-  par: number;
-  moves: number;
+  /** The fewest moves (D-080). */
+  perfect: number;
+  /** Targets lit after each move, for the share squares (D-057); its length is the moves counted so far. */
   progress: (0 | 1 | 2)[];
   started: boolean;
   /** Visible play time banked so far; the running stretch starts at `runningSince`. */
@@ -114,8 +116,6 @@ interface DailySession {
   copiedUntil: number;
 }
 let session: DailySession | null = null;
-/** Player actions that count as moves. */
-const MOVES = new Set(['rotate', 'place', 'move', 'pickUp', 'undo', 'redo', 'reset']);
 const elapsed = (s: DailySession) => s.elapsed + (s.runningSince !== null ? performance.now() - s.runningSince : 0);
 
 document.addEventListener('visibilitychange', () => {
@@ -138,15 +138,13 @@ function dailyHooks(s: DailySession): ModeHooks {
     status: () => {
       const stored = daily.result(s.date);
       if (stored && !s.result) return `Solved today in ${stored.moves} moves; replays don't change your result.`;
-      return s.started
-        ? `${s.moves} move${s.moves === 1 ? '' : 's'} · ${formatTime(elapsed(s))} · par ${s.par}`
-        : `Par ${s.par} moves. The clock starts with your first move.`;
+      // The move count itself is the HUD counter, which the player may hide until solved (D-082).
+      return s.started ? `${formatTime(elapsed(s))} · perfect ${s.perfect}` : `Perfect is ${s.perfect} moves. The clock starts with your first move.`;
     },
-    solved: () => {
-      const r = daily.result(s.date) ?? s.result;
-      if (!r) return 'Solved';
+    solvedNote: () => {
+      if (!s.result) return null; // a replay: the first solve of the day stays the result
       const streak = daily.streak(s.date);
-      return `Solved · ${r.moves} moves (${r.moves <= r.par ? '✦ par' : `par ${r.par}`}) · ${formatTime(r.timeMs)}${streak > 1 ? ` · 🔥 ${streak}` : ''}`;
+      return `${formatTime(s.result.timeMs)}${streak > 1 ? ` · 🔥 ${streak}` : ''}`;
     },
     action: () => ({ label: Date.now() < s.copiedUntil ? 'Copied ✓' : 'Share result', run: () => void shareDaily(s) }),
   };
@@ -181,7 +179,7 @@ async function openDaily(): Promise<void> {
     hud.say('Preparing today’s puzzle…');
     try {
       const out = await gen.request({ kind: 'daily', date });
-      cached = { level: out.generated.level, movesPar: out.movesPar };
+      cached = { level: out.generated.level, perfect: out.perfect };
       daily.cacheLevel(date, cached);
     } catch (e) {
       hud.say(`Today’s puzzle couldn’t be made: ${(e as Error).message}.`);
@@ -189,7 +187,7 @@ async function openDaily(): Promise<void> {
     }
   }
   if (location.hash !== '#daily') return; // the player went elsewhere meanwhile
-  session = { date, par: cached.movesPar, moves: 0, progress: [], started: false, elapsed: 0, runningSince: null, result: null, copiedUntil: 0 };
+  session = { date, perfect: cached.perfect, progress: [], started: false, elapsed: 0, runningSince: null, result: null, copiedUntil: 0 };
   play('daily', [cached.level], 0, dailyHooks(session));
 }
 
@@ -262,9 +260,9 @@ function endlessHooks(r: EndlessRun): ModeHooks {
     labelPrefix: 'Endless · ',
     label: () => `${name} #${r.n}`,
     status: () => (endless.solved(r.tier) < 2 ? 'A fresh puzzle every time.' : null),
-    solved: () => {
+    solvedNote: () => {
       const k = endless.solved(r.tier);
-      return `Solved · ${k} ${name.toLowerCase()} puzzle${k === 1 ? '' : 's'} so far`;
+      return `${k} ${name.toLowerCase()} puzzle${k === 1 ? '' : 's'} so far`;
     },
     action: () => ({ label: 'Next puzzle', run: () => void openEndless(r.tier) }),
     skip: () => {
@@ -288,6 +286,18 @@ let campaignIndex = game.index;
 let okBefore = new Set<number>();
 const okNow = () => new Set(game.trace.targets.filter((t) => t.ok).map((t) => t.cell));
 
+/**
+ * Where a level's best moves are saved (D-081): a campaign level by its id, a
+ * generated one by generator version, tier and seed. Test and shared levels
+ * aren't saved.
+ */
+function recordKey(): string | null {
+  if (mode === 'campaign') return game.level.id;
+  if (mode === 'daily' && session) return generatedId(DAILY_TIER, dailySeed(session.date));
+  if (mode === 'endless' && run) return generatedId(run.tier, endlessSeed(run.tier, run.n));
+  return null;
+}
+
 game.on((e) => {
   wake();
   if (e === 'level' || game.board.inv.length !== layout.slots.length) relayout();
@@ -295,6 +305,13 @@ game.on((e) => {
     okBefore = okNow();
     renderer.fadeIn();
     if (mode === 'campaign') progress.setLast(game.level.id);
+    return;
+  }
+  if (e === 'solutions') {
+    // Keep the perfect count with a saved best: one solved before it was known, or a level since changed.
+    const key = recordKey();
+    const perfect = game.perfect;
+    if (key && perfect !== null) progress.setPerfect(key, perfect);
     return;
   }
   if (e === 'change') {
@@ -319,14 +336,18 @@ game.on((e) => {
         break;
     }
     const s = session;
-    if (mode === 'daily' && s && !s.result && MOVES.has(game.lastAction)) {
-      if (!s.started) {
-        s.started = true;
-        s.runningSince = document.hidden ? null : performance.now();
-      }
-      s.moves++;
+    if (mode === 'daily' && s && !s.result) {
       const lit = game.trace.targets.filter((t) => t.ok).length;
-      s.progress.push(lit === 0 ? 0 : lit === game.trace.targets.length ? 2 : 1);
+      const square = lit === 0 ? 0 : lit === game.trace.targets.length ? 2 : 1;
+      if (game.moves > s.progress.length) {
+        if (!s.started) {
+          s.started = true;
+          s.runningSince = document.hidden ? null : performance.now();
+        }
+        s.progress.push(square);
+      } else if (game.lastAction === 'rotate' && s.progress.length) {
+        s.progress[s.progress.length - 1] = square; // more turns of the same piece: still one move
+      }
     }
     const ok = okNow();
     if (!game.solved) {
@@ -338,11 +359,17 @@ game.on((e) => {
   if (e === 'solved') {
     sound.solved(game.trace.targets.map((t) => t.want));
     renderer.celebrate(game.trace.targets, game.board.w);
-    if (mode === 'daily' && session && !session.result) {
+    // This play's moves against the saved best (D-081); a hinted solve is saved but marked.
+    const key = recordKey();
+    const before = key ? progress.movesBest(key) : undefined;
+    const solve = game.hintsUsed ? { moves: game.moves, hinted: true as const } : { moves: game.moves };
+    const better = key ? progress.recordMoves(key, solve, game.perfect) : false;
+    hud.showSolve({ moves: game.moves, hints: game.hintsUsed, before, newBest: better && before !== undefined });
+    if (mode === 'daily' && session && !session.result && !daily.result(session.date)) {
       const s = session;
       s.elapsed = elapsed(s);
       s.runningSince = null;
-      s.result = { date: s.date, moves: s.moves, par: s.par, timeMs: Math.round(s.elapsed), hints: game.hintsUsed, progress: s.progress };
+      s.result = { date: s.date, moves: game.moves, perfect: s.perfect, timeMs: Math.round(s.elapsed), hints: game.hintsUsed, progress: s.progress };
       daily.record(s.result); // the first completion of a date is the one that counts
       hud.refresh();
     }
@@ -408,6 +435,8 @@ syncSoundButton();
 // ── display settings: colour symbols and reduced motion (D-066, D-067) ──
 const symbolsButton = document.querySelector<HTMLButtonElement>('#opt-symbols')!;
 const motionButton = document.querySelector<HTMLButtonElement>('#opt-motion')!;
+const movesButton = document.querySelector<HTMLButtonElement>('#opt-moves')!;
+hud.movesAfterSolve = () => settings.movesAfterSolve;
 const applySettings = (): void => {
   setDisplay({ symbols: settings.symbols, reduceMotion: settings.reduceMotion });
   document.documentElement.classList.toggle('symbols', settings.symbols);
@@ -416,6 +445,9 @@ const applySettings = (): void => {
   symbolsButton.setAttribute('aria-pressed', String(settings.symbols));
   motionButton.textContent = `Reduce motion: ${settings.reduceMotion ? 'on' : 'off'}${settings.motionChoice === null ? ' (system)' : ''}`;
   motionButton.setAttribute('aria-pressed', String(settings.reduceMotion));
+  movesButton.textContent = `Move counter: ${settings.movesAfterSolve ? 'after solving' : 'on'}`;
+  movesButton.setAttribute('aria-pressed', String(!settings.movesAfterSolve));
+  hud.refresh();
 };
 settings.on(() => {
   applySettings();
@@ -424,6 +456,7 @@ settings.on(() => {
 applySettings();
 symbolsButton.addEventListener('click', () => (settings.symbols = !settings.symbols));
 motionButton.addEventListener('click', () => (settings.reduceMotion = !settings.reduceMotion));
+movesButton.addEventListener('click', () => (settings.movesAfterSolve = !settings.movesAfterSolve));
 
 select.daily = () => {
   const date = todayLocal();
@@ -432,7 +465,7 @@ select.daily = () => {
   return {
     title: `Daily puzzle #${dailyNumber(date)}`,
     status: r
-      ? `Solved in ${r.moves} moves (par ${r.par}) · ${formatTime(r.timeMs)} · next in ${untilTomorrow()}`
+      ? `Solved in ${movesVerdict(r)} · ${formatTime(r.timeMs)} · next in ${untilTomorrow()}`
       : `A new puzzle every day, the same for everyone${streak ? ` · 🔥 ${streak}` : ''}`,
     solved: !!r,
     streak,

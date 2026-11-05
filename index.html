@@ -18,6 +18,7 @@
         <div class="title">
           <span id="level-num" class="num"></span>
           <h1 id="level-name"></h1>
+          <span id="moves" class="moves" title="Moves: placing, moving or removing a piece, or turning one"></span>
         </div>
         <nav class="controls" aria-label="Game controls">
           <button id="btn-levels" class="btn" type="button" aria-label="Levels" title="Levels (L)">
@@ -52,7 +53,7 @@
         </nav>
       </header>
       <div class="status" aria-live="polite">
-        <p id="note"></p>
+        <p id="note"><span id="moves-inline" class="moves-inline" aria-hidden="true"></span><span id="note-text"></span></p>
         <button id="btn-skip" class="pill small" type="button" title="Skip to a new puzzle (N)" hidden>Skip</button>
         <div id="solved" hidden>
           <span id="solved-text">Solved</span>
@@ -77,6 +78,7 @@
             <button id="levels-sound" class="chip-btn" type="button" aria-pressed="true">Sound: on</button>
             <button id="opt-symbols" class="chip-btn" type="button" aria-pressed="false" title="A shape for each colour of light: red ▲, green ■, blue ●">Colour symbols: off</button>
             <button id="opt-motion" class="chip-btn" type="button" aria-pressed="false">Reduce motion: off</button>
+            <button id="opt-moves" class="chip-btn" type="button" aria-pressed="true" title="Show the move count while you play, or only once the level is solved">Move counter: on</button>
           </div>
           <div id="levels-body" class="sheet-body"></div>
         </div>

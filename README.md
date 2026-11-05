@@ -47,6 +47,23 @@ levels have exactly one fewest-piece solution. A world opens after you solve
 6 levels of the previous one. If you get stuck, the hint button shows one next
 step at a time.
 
+## Moves
+
+A quiet counter beside the level name counts your moves: placing, moving or
+removing a piece, or turning one piece (however many taps in a row). Undo and
+reset never take moves back; starting the level again does. The solver knows
+the fewest moves for every level, its **perfect** score:
+
+```
+Solved in 9 moves · best 7 · perfect 6
+```
+
+Your best is saved per level and shown on the level select, with ◎ for a
+perfect solve. A solve that used a hint is saved but marked, and any solve
+without hints replaces it. ✦ still marks par, the fewest *pieces*, on one
+level per world. **Options → Move counter: after solving** hides the count
+until the level is solved.
+
 <p>
   <img src="docs/media/split-and-merge.webp" width="49%" alt="Division 9: splitters separate and then mix red and green" />
   <img src="docs/media/white-again.webp" width="49%" alt="Spectrum 7: a prism's fan recombined into white" />
@@ -74,6 +91,8 @@ Open the level select's **Options** row:
   as their parts: red ▲, green ■, blue ●, yellow ▲■, magenta ▲●, cyan ■●,
   white ▲■●.
 * **Reduce motion** follows your system setting until you change it.
+* **Move counter: after solving** keeps the move count out of sight while
+  you play.
 
 The whole game can be played by keyboard (arrows and Space on the board, Tab
 through the controls), with a visible focus ring everywhere.
@@ -88,7 +107,7 @@ streak are saved, and **Share result** copies a spoiler-free summary:
 Puzzle Light · Daily #3
 ⬛⬛🟨🟨⬛🟨🟨🟨
 🟩
-9 moves (par 5) · 1:23 · 🔥3
+9 moves (perfect 6) · 1:23 · 🔥3
 ```
 
 ## Endless mode

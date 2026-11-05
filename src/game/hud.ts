@@ -1,4 +1,5 @@
 import type { Hint } from '../core/hint';
+import { plural, solveParts, type BannerPart, type SolveSummary } from '../core/moves';
 import { KINDS } from '../core/piece';
 import { PACKS } from '../levels';
 import { $ } from './dom';
@@ -16,8 +17,8 @@ export interface ModeHooks {
   labelPrefix?: string;
   /** Shown in the status line while playing (after hints and notices). */
   status?: () => string | null;
-  /** Replaces the solved banner text. */
-  solved?: () => string;
+  /** Words added to the solved banner after the move count (time, streak, …). */
+  solvedNote?: () => string | null;
   /** Replaces "Next level". */
   action?: () => { label: string; run: () => void } | null;
   /** A "Skip" button beside the status line while unsolved (endless mode); N and ] press it. */
@@ -43,10 +44,19 @@ export class Hud {
   soundOn: () => boolean = () => false;
   /** Why the next level is closed, if it is (world gates). */
   lockNote: () => string | null = () => null;
+  /** Keep the move counter hidden until the level is solved (D-082). */
+  movesAfterSolve: () => boolean = () => false;
+  /** The latest solve, with the saved best it was compared with (set by the caller on 'solved'). */
+  private summary: SolveSummary | null = null;
+  /** The level has been solved since it was started, so the counter may show. */
+  private solvedOnce = false;
   private readonly el = {
     num: $('#level-num'),
+    moves: $('#moves'),
+    movesInline: $('#moves-inline'),
     name: $('#level-name'),
     note: $('#note'),
+    noteText: $('#note-text'),
     solved: $('#solved'),
     solvedText: $('#solved-text'),
     cont: $<HTMLButtonElement>('#btn-continue'),
@@ -87,7 +97,12 @@ export class Hud {
     });
     window.addEventListener('keydown', this.onKey);
     game.on((e) => {
-      if (e === 'level') this.notice = this.bannerNote = '';
+      if (e === 'level') {
+        this.notice = this.bannerNote = '';
+        this.summary = null;
+        this.solvedOnce = false;
+      }
+      if (e === 'solved') this.solvedOnce = true;
       this.update();
     });
     this.update();
@@ -109,6 +124,12 @@ export class Hud {
 
   /** Re-read state that lives outside the game (e.g. sound). */
   refresh(): void {
+    this.update();
+  }
+
+  /** Describe the solve that just happened (its moves against the saved best). */
+  showSolve(summary: SolveSummary): void {
+    this.summary = summary;
     this.update();
   }
 
@@ -177,6 +198,9 @@ export class Hud {
     el.sound.title = on ? 'Sound on (M)' : 'Sound off (M)';
     el.sound.setAttribute('aria-pressed', String(on));
     el.name.textContent = g.level.name;
+    // The move counter (D-082): in the header, or leading the status line on phones.
+    el.moves.textContent = el.movesInline.textContent = plural(g.moves, 'move');
+    el.moves.hidden = el.movesInline.hidden = this.movesAfterSolve() && !this.solvedOnce;
     document.title = `${g.level.name} · Puzzle Light`;
     el.prev.disabled = !g.hasPrev;
     el.next.disabled = !g.hasNext;
@@ -184,20 +208,30 @@ export class Hud {
     el.redo.disabled = !g.canRedo;
     el.hint.disabled = g.solved;
 
-    el.note.textContent = g.hintShown ? describeHint(g, g.hintShown) : g.hintPending ? 'Looking for a hint…' : this.notice || this.hooks.status?.() || (g.level.note ?? '');
+    el.noteText.textContent = g.hintShown ? describeHint(g, g.hintShown) : g.hintPending ? 'Looking for a hint…' : this.notice || this.hooks.status?.() || (g.level.note ?? '');
     el.note.classList.toggle('hinting', !!g.hintShown || g.hintPending);
     el.note.hidden = g.solved;
     el.skip.hidden = g.solved || !this.hooks.skip;
     el.solved.hidden = !g.solved;
     if (g.solved) {
+      const summary = this.summary ?? { moves: g.moves, hints: g.hintsUsed, newBest: false };
+      const parts: BannerPart[] = solveParts(summary, g.perfect);
       const par = g.level.par;
       const used = g.piecesUsed;
+      // Par counts pieces, not moves, so it keeps its own ✦ (D-080).
+      if (par !== undefined) parts.push({ text: used <= par ? `${plural(used, 'piece')} ✦ par` : `${plural(used, 'piece')} (par ${par})` });
+      const note = this.hooks.solvedNote?.();
+      if (note) parts.push({ text: note });
       const lock = campaign ? this.lockNote() : null;
-      el.solvedText.textContent = this.hooks.solved
-        ? this.hooks.solved()
-        : (par === undefined ? 'Solved' : used <= par ? `Solved · ${used} of par ${par} ✦` : `Solved · ${used} pieces (par ${par})`) +
-          (lock ? ` · ${lock}` : '');
-      if (this.bannerNote) el.solvedText.textContent += ` · ${this.bannerNote}`;
+      if (lock) parts.push({ text: lock });
+      if (this.bannerNote) parts.push({ text: this.bannerNote });
+      el.solvedText.replaceChildren(
+        ...parts.flatMap((p, i) => {
+          const span = Object.assign(document.createElement('span'), { textContent: p.text });
+          if (p.mark) span.className = `mark-${p.mark}`;
+          return i ? [' · ', span] : [span];
+        }),
+      );
       const action = this.hooks.action?.();
       el.cont.textContent = action ? action.label : 'Next level';
       el.cont.hidden = action ? false : !g.hasNext || !campaign;

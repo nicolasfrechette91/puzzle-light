@@ -275,6 +275,32 @@ groups:
 * **Cleanup** (D-078): piece matching through `slotKey`, one worker client,
   one storage module, one `$`, one `LONG_PRESS_MS`, and the dead code removed.
 
+## Move tracker (after the audit)
+
+Asked by the owner: a per-level move count that keeps the calm feel, built on
+what existed (D-079 to D-083).
+
+* **One count everywhere** (`src/core/moves.ts`, D-079): placing, moving or
+  removing a piece, or a run of turns of one piece. Undo and reset never take
+  moves back; starting the level again does. The daily now uses it too.
+* **Perfect** (D-080): the solver's fewest moves, from the solutions the hint
+  worker already finds. It replaces the daily's par. Campaign par (pieces, ✦)
+  stays, because the two disagree (on 4-5 a perfect solve can miss ✦).
+  `npm run levels` shows `perf` for every level.
+* **Bests** (D-081) live in the progress record, keyed by level id or
+  generator id. A hinted solve is marked, and any solve without hints
+  replaces it.
+* **Display** (D-082): a muted counter in the header (it leads the status line
+  on phones), **Options → Move counter: after solving**, and "Solved in 9
+  moves · best 7 · perfect 6" with a soft gold "new best" and "◎ perfect".
+  Level tiles show the best, ◎ and a bulb for hinted bests.
+* **Daily** (D-083): status "1:23 · perfect 6"; share "9 moves (perfect 6)".
+* Tests: move counting (grouping, undo, reset, restart), perfect on small
+  boards, played out on every bundled level, hinted and unhinted bests, and
+  cleaning of the new stored fields. Browser checks covered the campaign,
+  daily (first play and replay), endless, shared levels and the option, on
+  desktop and phone.
+
 ## Open questions for the owner
 
 * ~~Licence (D-046)~~: MIT, chosen by the owner (D-048).

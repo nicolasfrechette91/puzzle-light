@@ -17,7 +17,8 @@ interface Stored {
 
 export interface CachedDaily {
   level: LevelData;
-  movesPar: number;
+  /** The fewest moves (D-080). A level cached before D-083 has none, so it is made again. */
+  perfect: number;
 }
 
 /** The player's local calendar date (D-054). */
@@ -32,16 +33,21 @@ export function untilTomorrow(now = new Date()): string {
   return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
 }
 
-const isResult = (r: unknown, date: string): r is DailyResult =>
-  isRecord(r) &&
-  r.date === date &&
-  isCount(r.moves) &&
-  isCount(r.par) &&
-  isCount(r.hints) &&
-  typeof r.timeMs === 'number' &&
-  r.timeMs >= 0 &&
-  Array.isArray(r.progress) &&
-  r.progress.every((p) => p === 0 || p === 1 || p === 2);
+/** A complete result for `date`, or null. Results saved before D-083 call `perfect` `par`. */
+function cleanResult(r: unknown, date: string): DailyResult | null {
+  if (!isRecord(r)) return null;
+  const perfect = r.perfect ?? r.par;
+  const ok =
+    r.date === date &&
+    isCount(r.moves) &&
+    isCount(perfect) &&
+    isCount(r.hints) &&
+    typeof r.timeMs === 'number' &&
+    r.timeMs >= 0 &&
+    Array.isArray(r.progress) &&
+    r.progress.every((p) => p === 0 || p === 1 || p === 2);
+  return ok ? { date, moves: r.moves as number, perfect, timeMs: r.timeMs as number, hints: r.hints as number, progress: r.progress as DailyResult['progress'] } : null;
+}
 
 /** Stored daily data with anything malformed dropped, so date maths never sees a bad date (D-071). */
 function clean(raw: unknown): Stored {
@@ -50,7 +56,12 @@ function clean(raw: unknown): Stored {
   const streak: StreakState = { current: isCount(s.current) ? s.current : 0, best: isCount(s.best) ? s.best : 0 };
   if (isDate(s.last)) streak.last = s.last;
   const results: Record<string, DailyResult> = {};
-  if (isRecord(d.results)) for (const [date, r] of Object.entries(d.results)) if (isDate(date) && isResult(r, date)) results[date] = r;
+  if (isRecord(d.results)) {
+    for (const [date, r] of Object.entries(d.results)) {
+      const clean = isDate(date) ? cleanResult(r, date) : null;
+      if (clean) results[date] = clean;
+    }
+  }
   return { streak, results };
 }
 
@@ -82,11 +93,11 @@ export class DailyStore {
   /** Today's level as cached, or null (generate it again) if there is none or it doesn't load. */
   cachedLevel(date: string): CachedDaily | null {
     const c = read<unknown>(`${LEVEL_PREFIX}v${GENERATOR_VERSION}:${date}`);
-    if (!isRecord(c) || !isCount(c.movesPar)) return null;
+    if (!isRecord(c) || !isCount(c.perfect)) return null;
     try {
       const level = checkLevelData(c.level, { id: `daily-${date}`, name: 'Daily' });
       parseLevel(level);
-      return { level, movesPar: c.movesPar };
+      return { level, perfect: c.perfect };
     } catch {
       return null;
     }

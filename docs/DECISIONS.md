@@ -416,6 +416,7 @@ Process:
   * **Par:** the fewest actions that solve it. Each tray piece placed, plus the shortest turn to its orientation, plus the shortest turn for each rotate-only piece (`movesPar`).
   * **Which play counts:** only the first completion of a date. Replays are allowed and say so, but don't change the result or streak.
 * **Reason:** Easy to explain and countable without hidden rules (policy 1); par is computed from the solver's unique solution (policy 2).
+* **Later:** the move tracker redefined moves (D-079) and renamed this par "perfect" (D-080, D-083).
 
 ### D-056 · Daily timer (M9, by: claude)
 * **Question:** When does the completion time start, and what does it include?
@@ -657,3 +658,60 @@ Process:
   * **`$`** lives in `game/dom.ts`; the editor imports `LONG_PRESS_MS` from the game's input.
   * **Removed:** `Game.completed` (written, never read; progress replaced it in M6), `inTray`, `DIR_NAMES`, `isDiagonal` and `channels`.
 * **Reason:** Policy 3: one rule in one place can't drift. Every test, the level check and browser checks of the editor, hints and sound pass unchanged.
+
+### D-079 · What a move is (moves, by: claude)
+* **Question:** The owner asked for a per-level move tracker. The daily already counted "moves" (D-055) as every action, including each turning step, undo, redo and reset. What is a move now?
+* **Choice:** one definition for every mode, replacing D-055's count (`MoveCounter` in the core, `Game.moves`):
+  * **One move:** placing, moving or removing a piece; or a run of consecutive turns of the same piece, grouped as undo groups them (D-004).
+  * **Not moves:** undo, redo and reset end a run of turns but add nothing and take nothing away. Hints, and taps that change nothing (a fixed piece), aren't moves and don't end a run.
+  * **Back to 0:** only by starting the level again: picking it in the level select, previous/next, Next puzzle, or reloading. Reset (R) is undoable, so it isn't a restart.
+  * **Edge case:** a run that comes full circle is still one move, though undo drops that step. The player kept turning one piece.
+* **Reason:** The owner's rules, made exact. One count everywhere, so the counter, the banner and the daily share always agree (policy 1).
+
+### D-080 · Perfect is the solver's fewest moves; it replaces the daily's par, and campaign par stays (moves, by: claude)
+* **Question:** The owner asked for the solver's minimum move count as each level's "perfect" score, and to merge it with the par ✦ if the two now mean the same thing. Two pars existed: campaign par (D-024) counts the fewest *pieces* on six levels, and its ✦ opens Expert (D-062); the daily's par (D-055, `movesPar`) counted the fewest *actions*.
+* **Choice:**
+  * **`perfectMoves(start, solutions)`:** the fewest moves over the solutions. Each tray piece costs 1 to place, plus 1 if it must turn from its tray orientation. Each rotate-only piece that must turn costs 1, whatever the angle. A movable piece already on the board costs 0 in place, or 1 to move it (a move keeps its orientation), plus 1 to turn. An unused movable piece costs 1 if it sits where a piece must go or spoils the light (checked by tracing); otherwise it may stay.
+  * **Where it comes from:** the game uses the solutions the hint worker already finds when a level loads (D-061), so nothing is solved twice. The generator worker works it out from a daily or endless level's unique solution.
+  * **Check:** `npm run levels` shows `perf`, and fails if the 50 solutions kept for hints would give a different number than all of them. All 56 levels agree. Perfect ranges from 1 to 7, and is lower than the old `movesPar` on 29 of them, because a long turn is now one move.
+  * **Daily: merged.** The daily's par already meant the fewest moves, so it is now called perfect, and `movesPar` is gone.
+  * **Campaign: kept apart.** Par counts pieces, not moves, and the two disagree. On 4-5 (par 1), 2 moves is the fewest, reached by the 1-piece solution and by two 2-piece ones, so a perfect solve can miss the ✦. A par solve can also take any number of moves. Merging would also change the Expert gate (D-062). So ✦ keeps its meaning, and perfect gets its own mark (D-082).
+* **Reason:** One meaning per mark (policy 1), computed from solver-verified solutions (policy 2), and the earlier gate decision stands (policy 5).
+
+### D-081 · Saved bests, and what a hint changes (moves, by: claude)
+* **Question:** Where are best move counts kept, under which key, and how do hinted solves count?
+* **Choice:**
+  * **Store:** the existing progress record (`puzzle-light:progress`, through `local-store`) gains `moves`, `movesHinted` and `perfect` per level, rather than a second store. Each field is checked when read (D-071).
+  * **Keys:** a hand-made level by its id; a generated level by its own generator id, `gen<version>-<tier>-<seed>` (`generatedId`), because the daily and endless modes rename their levels. World gates only look up campaign ids, so generated records can't open anything.
+  * **Not saved:** test and shared levels. A test level changes with every edit, and shared ids aren't unique (a missing one becomes "shared", D-070).
+  * **Which solve is the best (`beats`):** fewer moves replace the best. An unhinted solve always replaces a hinted best, even with more moves. A hinted solve never replaces an unhinted one.
+  * **Perfect needs no hint:** following hints walks straight to the fewest moves, so a hinted solve never gets the perfect mark. It is still saved and shown, marked with a small bulb.
+  * **The perfect count is saved with the best**, so the level select never has to solve. It is refreshed whenever the level's solutions arrive, so a level that changes corrects itself.
+  * **Daily:** the first completion stays the day's result (D-055); a replay can still set the best.
+* **Reason:** The owner's rules. One record per level (policy 3), cleaned like all saved data, and old records keep working (policy 4).
+
+### D-082 · How moves are shown (moves, by: claude)
+* **Question:** How do the counter, the solved banner and the level select show moves without adding pressure?
+* **Choice:**
+  * **Counter:** "4 moves" after the level name, muted and small like the level number. It never changes colour, makes no sound and gives no warnings. On phones (≤520 px) the title is 119–149 px wide and the level label alone needs up to 106 px, so the same count leads the status line instead ("4 moves · Drag a mirror…"). That copy is hidden from screen readers, so the live status line doesn't announce every move; the header count stays readable to them.
+  * **Option:** Options → **Move counter: on / after solving**. Hidden, it appears once the level is solved and stays until the level is started again.
+  * **Banner:** "Solved in 9 moves · best 7 · perfect 6".
+    * A first solve has no best part.
+    * An improvement says "new best", in the ✦'s warm gold with a soft glow.
+    * An unhinted solve at the fewest moves says "◎ perfect" in semibold gold, instead of the best and perfect parts.
+    * Hints read "with a hint" (or "with hints"), and a hinted best reads "best 7 with a hint".
+    * Par levels add "2 pieces ✦ par" or "3 pieces (par 2)".
+    * The banner wraps between parts, never inside one, and "Next level" stays on one line.
+  * **The mark ◎:** a bullseye, echoing the target's silhouette (D-049). It is clearly not ✦, and like ✦ it is a text glyph rather than an emoji, so it looks the same in the banner, on tiles and in the share text.
+  * **Tiles:** the best count sits small and muted under the level number. It reads "◎ 6" in gold when perfect, and shows the hint button's bulb when a hint was used. ✦ keeps its corner, and the tooltip and label spell everything out. World headers don't count perfects: a best is a personal record, not something to collect.
+* **Reason:** Calm, as the owner asked, and readable at a glance (policy 1).
+
+### D-083 · The daily under the new count (moves, by: claude)
+* **Question:** What changes in the daily (D-055, D-057) now that moves and perfect are defined everywhere?
+* **Choice:**
+  * **Status:** "Perfect is 6 moves. The clock starts with your first move.", then "1:23 · perfect 6". The count itself is the HUD counter, so the hide option applies to it too.
+  * **Banner:** "Solved in 9 moves · perfect 6 · 1:23 · 🔥 2". A replay shows its own moves and best, without the time.
+  * **Share:** "9 moves (perfect 6)", or "6 moves (◎ perfect)". A hinted solve never shows ◎, but 💡 still counts the hints.
+  * **Squares:** one per move. More turns of the same piece update that move's square.
+  * **Saved data:** a result saved with `par` is read as `perfect`; results from before this change keep their numbers. A cached daily level without `perfect` is generated again, so its perfect follows the new count.
+* **Reason:** The daily's moves and par now follow D-079 and D-080. Saved results still load (policy 4).

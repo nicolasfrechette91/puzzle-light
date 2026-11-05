@@ -173,6 +173,64 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* Long banners wrap between their parts, never inside one, and the button stays whole. */
+#solved-text > span {
+  white-space: nowrap;
+}
+
+#solved > .pill {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* A new best glows softly; a perfect solve gets its own warm mark (D-082). */
+#solved-text .mark-best,
+#solved-text .mark-perfect {
+  color: #ffe08a;
+  text-shadow: 0 0 12px rgba(255, 224, 138, 0.45);
+}
+
+#solved-text .mark-perfect {
+  font-weight: 600;
+}
+
+/* The move counter: small and muted, never coloured (D-082). */
+.title .moves {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.title .moves[hidden],
+.moves-inline {
+  display: none;
+}
+
+/* Phones: the header has no room, so the count leads the status line instead. */
+@media (max-width: 520px) {
+  /* Kept for screen readers, which read it on demand rather than at every move. */
+  .title .moves:not([hidden]) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .moves-inline:not([hidden]) {
+    display: inline;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .moves-inline:not([hidden]) + #note-text:not(:empty)::before {
+    content: ' · ';
+    color: var(--muted);
+  }
+}
+
 .pill {
   padding: 8px 16px;
   border-radius: 999px;
@@ -417,6 +475,39 @@ body {
   right: 5px;
   font-size: 10px;
   color: #ffe08a;
+}
+
+.tile.has-best {
+  padding-bottom: 9px;
+}
+
+/* The best move count, quiet under the level number (D-082). */
+.tile .best {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.tile .best.perfect {
+  color: #ffe08a;
+}
+
+.tile .best .bulb {
+  width: 9px;
+  height: 9px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .tile:disabled {

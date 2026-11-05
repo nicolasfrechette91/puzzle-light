@@ -40,6 +40,12 @@ import { arrivals, nextCell, trace } from './trace';
 export const GENERATOR_VERSION = 2;
 
 export type Tier = 'easy' | 'medium' | 'hard';
+
+/**
+ * A generated level's own id: generator version, tier and seed. The daily and
+ * endless modes rename their levels, but saved bests stay keyed by this (D-081).
+ */
+export const generatedId = (tier: Tier, seed: number): string => `gen${GENERATOR_VERSION}-${tier}-${seed >>> 0}`;
 export const TIERS: readonly Tier[] = ['easy', 'medium', 'hard'];
 
 interface KindChoice {
@@ -471,7 +477,7 @@ export function generate(opts: GenerateOptions): Generated | null {
   if (!best) return null;
   const s = best.result.solutions[0]!;
   const name = opts.name ?? levelName(opts.seed >>> 0, 0);
-  const meta: Omit<LevelData, 'grid' | 'inv'> = { id: `gen${GENERATOR_VERSION}-${opts.tier}-${opts.seed >>> 0}`, name };
+  const meta: Omit<LevelData, 'grid' | 'inv'> = { id: generatedId(opts.tier, opts.seed), name };
   if (spec.bends === 90) meta.bends = 90;
   const level = toLevelData(best.board, meta);
   if (level.inv) for (const [k, v] of Object.entries(level.inv)) if (v === 0) delete level.inv[k];

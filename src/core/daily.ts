@@ -1,10 +1,7 @@
-import type { Board } from './board';
 import { generate, GENERATOR_VERSION, type Generated, type Tier } from './generate';
+import { isPerfect, PERFECT_MARK, plural } from './moves';
 import { dailyName } from './names';
-import { KINDS } from './piece';
 import { seedFrom } from './random';
-import { slotKey } from './token';
-import type { Solution } from './solver';
 
 /**
  * The daily puzzle: one generated level per calendar date, the same for
@@ -50,27 +47,6 @@ export function dailyLevel(date: string): Generated | null {
   return g;
 }
 
-/**
- * The fewest player actions that solve the level: each tray piece placed
- * (one action) and turned from its tray orientation to its solution
- * orientation, and each rotate-only piece turned, the short way round.
- */
-export function movesPar(start: Board, s: Solution): number {
-  let moves = 0;
-  for (const { cell, piece } of s.placements) {
-    const from = piece.lock === 'free' ? (start.inv.find((sl) => slotKey(sl.proto) === slotKey(piece))?.proto.rot ?? 0) : (start.cells[cell]?.rot ?? 0);
-    if (piece.lock === 'free') moves++;
-    const steps = KINDS[piece.kind].rotSteps;
-    if (steps > 1) {
-      const stride = start.stride(piece);
-      const positions = steps / stride;
-      const d = ((((piece.rot - from) / stride) % positions) + positions) % positions;
-      moves += Math.min(d, positions - d);
-    }
-  }
-  return moves;
-}
-
 export interface StreakState {
   /** Last date a daily was solved. */
   last?: string;
@@ -93,8 +69,10 @@ export function streakOn(s: StreakState, today: string): number {
 
 export interface DailyResult {
   date: string;
+  /** Moves as counted everywhere (D-079). */
   moves: number;
-  par: number;
+  /** The fewest moves that solve it (D-080); results saved before D-083 call it `par`. */
+  perfect: number;
   timeMs: number;
   hints: number;
   /** After each move: 0 = no target lit, 1 = some, 2 = all. */
@@ -107,6 +85,12 @@ export function formatTime(ms: number): string {
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** "9 moves (perfect 6)", or "6 moves (◎ perfect)" for a perfect solve without hints. */
+export function movesVerdict(r: Pick<DailyResult, 'moves' | 'perfect' | 'hints'>): string {
+  const perfect = isPerfect(r.hints ? { moves: r.moves, hinted: true } : { moves: r.moves }, r.perfect);
+  return `${plural(r.moves, 'move')} (${perfect ? `${PERFECT_MARK} perfect` : `perfect ${r.perfect}`})`;
 }
 
 const SQUARE = ['⬛', '🟨', '🟩'] as const;
@@ -122,8 +106,7 @@ export function shareText(r: DailyResult, streak: number, url: string): string {
   const shown = squares.length > MAX_SQUARES ? [...squares.slice(0, MAX_SQUARES - 1), '…'] : squares;
   const rows: string[] = [];
   for (let i = 0; i < shown.length; i += ROW) rows.push(shown.slice(i, i + ROW).join(''));
-  const verdict = r.moves <= r.par ? '✦ par' : `par ${r.par}`;
-  const extras = [`${r.moves} moves (${verdict})`, formatTime(r.timeMs)];
+  const extras = [movesVerdict(r), formatTime(r.timeMs)];
   if (r.hints) extras.push(`💡${r.hints}`);
   if (streak > 1) extras.push(`🔥${streak}`);
   return [`Puzzle Light · Daily #${dailyNumber(r.date)}`, ...rows, extras.join(' · '), url].join('\n');

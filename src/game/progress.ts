@@ -1,4 +1,5 @@
 import type { LevelData } from '../core/level';
+import { beats, type MoveBest } from '../core/moves';
 import { isCount, isRecord, readJson, writeJson } from './local-store';
 
 /** Levels to solve in a world to open the next one (D-036). */
@@ -10,6 +11,12 @@ export interface LevelProgress {
   best?: number;
   /** Fewest hints used in a solve. */
   hints?: number;
+  /** Fewest moves in a solve (D-081); an unhinted solve always replaces a hinted one. */
+  moves?: number;
+  /** The solve behind `moves` used a hint. */
+  movesHinted?: true;
+  /** The level's perfect move count, kept so the level select never has to solve. */
+  perfect?: number;
 }
 
 type LevelRef = Pick<LevelData, 'id' | 'par'>;
@@ -73,6 +80,11 @@ export function resumeIndex(
 
 const KEY = 'puzzle-light:progress';
 
+/**
+ * Records are keyed by level: a hand-made level by its id, a generated one by
+ * `generatedId` (generator version, tier and seed; D-081). Only campaign ids
+ * count towards world gates.
+ */
 interface Stored {
   levels: Record<string, LevelProgress>;
   last?: string;
@@ -88,6 +100,11 @@ function clean(raw: unknown): Stored {
       const level: LevelProgress = { solved: true };
       if (isCount(p.best)) level.best = p.best;
       if (isCount(p.hints)) level.hints = p.hints;
+      if (isCount(p.moves)) {
+        level.moves = p.moves;
+        if (p.movesHinted === true) level.movesHinted = true;
+      }
+      if (isCount(p.perfect)) level.perfect = p.perfect;
       out.levels[id] = level;
     }
   }
@@ -125,6 +142,40 @@ export class Progress {
     p.best = p.best === undefined ? pieces : Math.min(p.best, pieces);
     p.hints = p.hints === undefined ? hints : Math.min(p.hints, hints);
     this.data.levels[id] = p;
+    this.save();
+  }
+
+  /** The best move count saved for a level, if any. */
+  movesBest(id: string): MoveBest | undefined {
+    const p = this.data.levels[id];
+    if (p?.moves === undefined) return undefined;
+    return p.movesHinted ? { moves: p.moves, hinted: true } : { moves: p.moves };
+  }
+
+  /**
+   * Save a solve's move count; returns whether it became the best. A solve
+   * with a hint is saved but marked, and never replaces an unhinted best.
+   */
+  recordMoves(id: string, solve: MoveBest, perfect: number | null): boolean {
+    const p = this.data.levels[id] ?? { solved: true };
+    p.solved = true;
+    const better = beats(solve, this.movesBest(id));
+    if (better) {
+      p.moves = solve.moves;
+      if (solve.hinted) p.movesHinted = true;
+      else delete p.movesHinted;
+    }
+    if (perfect !== null) p.perfect = perfect;
+    this.data.levels[id] = p;
+    this.save();
+    return better;
+  }
+
+  /** The level's perfect count became known after it was solved. */
+  setPerfect(id: string, perfect: number): void {
+    const p = this.data.levels[id];
+    if (!p || p.perfect === perfect) return;
+    p.perfect = perfect;
     this.save();
   }
 

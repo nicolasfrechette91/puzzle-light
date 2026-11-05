@@ -6,15 +6,14 @@ import {
   dailySeed,
   dayNumber,
   formatTime,
-  movesPar,
   shareText,
   streakAfterSolve,
   streakOn,
 } from '../src/core/daily';
 import { parseLevel } from '../src/core/level';
+import { perfectMoves } from '../src/core/moves';
 import { solve } from '../src/core/solver';
 import { trace } from '../src/core/trace';
-import { board } from './helpers';
 
 describe('dates', () => {
   it('counts calendar days without time zones', () => {
@@ -47,27 +46,9 @@ describe('daily level', () => {
       expect(trace(b).solved).toBe(false);
       const r = solve(b);
       expect(r.count, date).toBe(1);
-      expect(movesPar(b, r.solutions[0]!)).toBeGreaterThanOrEqual(r.solutions[0]!.pieces);
+      expect(perfectMoves(b, r.solutions)).toBeGreaterThanOrEqual(r.solutions[0]!.pieces);
     }
   }, 60_000);
-});
-
-describe('movesPar', () => {
-  it('counts placements plus the shortest turns', () => {
-    // One tray mirror placed and turned 45° (one tap): 2 actions.
-    const b = board(['Er0 . . .', '.   . . Tr'], { M: 1 });
-    expect(movesPar(b, solve(b).solutions[0]!)).toBe(2);
-    // A rotate-only mirror needing a turn of 6 steps goes the short way: 2 taps back.
-    const r = board(['Er0 . M0~ .', '.   . .   .', '.   . Tr  .']);
-    const sol = solve(r).solutions[0]!;
-    expect(sol.moves).toEqual(['M2~@2,0']);
-    expect(movesPar(r, sol)).toBe(2);
-  });
-
-  it('uses 90° steps on bends-90 boards', () => {
-    const b = parseLevel({ id: 'x', name: 'x', grid: ['Er0 . M0~', '.   . .', '.   . Tr'], bends: 90 });
-    expect(movesPar(b, solve(b).solutions[0]!)).toBe(1); // — to \\ is one 90° tap
-  });
 });
 
 describe('streaks', () => {
@@ -85,17 +66,18 @@ describe('streaks', () => {
 });
 
 describe('share text', () => {
-  const result = { date: '2026-11-06', moves: 9, par: 5, timeMs: 83_000, hints: 0, progress: [0, 0, 1, 1, 0, 1, 1, 1, 2] as (0 | 1 | 2)[] };
+  const result = { date: '2026-11-06', moves: 9, perfect: 5, timeMs: 83_000, hints: 0, progress: [0, 0, 1, 1, 0, 1, 1, 1, 2] as (0 | 1 | 2)[] };
 
   it('shows the journey, not the solution', () => {
     expect(shareText(result, 3, 'https://example.test/')).toBe(
-      ['Puzzle Light · Daily #3', '⬛⬛🟨🟨⬛🟨🟨🟨', '🟩', '9 moves (par 5) · 1:23 · 🔥3', 'https://example.test/'].join('\n'),
+      ['Puzzle Light · Daily #3', '⬛⬛🟨🟨⬛🟨🟨🟨', '🟩', '9 moves (perfect 5) · 1:23 · 🔥3', 'https://example.test/'].join('\n'),
     );
   });
 
-  it('marks par, hints, and long games', () => {
+  it('marks a perfect solve, hints, and long games', () => {
+    expect(shareText({ ...result, moves: 5 }, 1, 'u')).toContain('5 moves (◎ perfect) · 1:23');
     const t = shareText({ ...result, moves: 5, hints: 2, progress: Array(60).fill(1) as 1[] }, 1, 'u');
-    expect(t).toContain('5 moves (✦ par)');
+    expect(t).toContain('5 moves (perfect 5)'); // a hint keeps the perfect mark away (D-081)
     expect(t).toContain('💡2');
     expect(t).not.toContain('🔥');
     expect(t.split('\n').slice(1, -2).join('')).toContain('…');

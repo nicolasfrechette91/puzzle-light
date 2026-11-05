@@ -2,6 +2,7 @@ import type { Board } from '../core/board';
 import { nextHint, type Hint } from '../core/hint';
 import { History } from '../core/history';
 import { parseLevel, type LevelData } from '../core/level';
+import { MoveCounter, perfectMoves, type MoveKind } from '../core/moves';
 import { HINT_SOLVE, solve, type Solution } from '../core/solver';
 import { trace, type Trace } from '../core/trace';
 
@@ -14,7 +15,9 @@ export type GameEvent =
   /** The board just went from unsolved to solved through a player action. */
   | 'solved'
   /** A different level was loaded. */
-  | 'level';
+  | 'level'
+  /** The level's solutions arrived: hints and the perfect count are ready. */
+  | 'solutions';
 
 /**
  * Game controller: owns the current level, its board, undo history and trace.
@@ -47,6 +50,8 @@ export class Game {
 
   private history!: History<Board>;
   private start!: Board;
+  private counter = new MoveCounter();
+  private perfectCount: number | null | undefined;
   private solutions: Solution[] | null = null;
   private solving: LevelData | null = null;
   private solveToken = 0;
@@ -80,6 +85,8 @@ export class Game {
     const b = parseLevel(this.level);
     this.start = b.clone();
     this.solutions = null;
+    this.perfectCount = undefined;
+    this.counter = new MoveCounter(); // starting a level again is the only way back to 0 (D-079)
     this.solving = null;
     this.hintPending = false;
     this.hintShown = null;
@@ -104,6 +111,7 @@ export class Game {
       if (token !== this.solveToken || this.level !== level) return;
       this.solving = null;
       this.solutions = s ?? solve(this.start, HINT_SOLVE).solutions;
+      this.emit('solutions');
       if (this.hintPending) {
         this.hintPending = false;
         this.hint();
@@ -133,10 +141,34 @@ export class Game {
     return this.board.cells.reduce((n, p) => n + (p?.lock === 'free' ? 1 : 0), 0);
   }
 
-  /** Run `action` on a copy of the board; record and publish it if it changed anything. */
-  apply(action: (b: Board) => boolean, tag?: string): boolean {
+  /** Moves made since the level was started (D-079). */
+  get moves(): number {
+    return this.counter.count;
+  }
+
+  /**
+   * The fewest moves that solve the level (D-080), or null until its
+   * solutions are known (the 'solutions' event says when). Without a worker
+   * it solves here, as the first hint does.
+   */
+  get perfect(): number | null {
+    if (this.perfectCount === undefined) {
+      if (!this.solutions && this.solveAsync) return null;
+      this.solutions ??= solve(this.start, HINT_SOLVE).solutions;
+      this.perfectCount = perfectMoves(this.start, this.solutions);
+    }
+    return this.perfectCount;
+  }
+
+  /**
+   * Run `action` on a copy of the board; if it changed anything, record it in
+   * the history (turns of one piece share an undo step, D-004), count the
+   * move and publish it.
+   */
+  private apply(kind: MoveKind, action: (b: Board) => boolean, cell?: number): boolean {
     const next = this.board.clone();
-    if (!action(next) || !this.history.push(next, tag)) return false;
+    if (!action(next) || !this.history.push(next, kind === 'rotate' ? `rot:${cell}` : undefined)) return false;
+    this.counter.record(kind, cell);
     this.setBoard(next.clone(), true);
     return true;
   }
@@ -144,41 +176,48 @@ export class Game {
   rotate(cell: number, delta: number): boolean {
     this.lastAction = 'rotate';
     this.lastDelta = delta;
-    return this.apply((b) => b.rotate(cell, delta), `rot:${cell}`);
+    return this.apply('rotate', (b) => b.rotate(cell, delta), cell);
   }
 
   place(slot: number, cell: number): boolean {
     this.lastAction = 'place';
-    return this.apply((b) => b.place(slot, cell));
+    return this.apply('place', (b) => b.place(slot, cell));
   }
 
   move(from: number, to: number): boolean {
     this.lastAction = 'move';
-    return this.apply((b) => b.move(from, to));
+    return this.apply('move', (b) => b.move(from, to));
   }
 
   pickUp(cell: number): boolean {
     this.lastAction = 'pickUp';
-    return this.apply((b) => b.pickUp(cell));
+    return this.apply('pickUp', (b) => b.pickUp(cell));
   }
 
+  /** Undo, redo and reset end a run of turns but never change the move count. */
   undo(): void {
     const s = this.history.undo();
     this.lastAction = 'undo';
-    if (s) this.setBoard(s.clone(), true);
+    if (!s) return;
+    this.counter.record('undo');
+    this.setBoard(s.clone(), true);
   }
 
   redo(): void {
     const s = this.history.redo();
     this.lastAction = 'redo';
-    if (s) this.setBoard(s.clone(), true);
+    if (!s) return;
+    this.counter.record('redo');
+    this.setBoard(s.clone(), true);
   }
 
   /** Back to the level's starting state. Recorded in history, so it can be undone. */
   reset(): void {
     const fresh = parseLevel(this.level);
     this.lastAction = 'reset';
-    if (this.history.push(fresh)) this.setBoard(fresh.clone(), true);
+    if (!this.history.push(fresh)) return;
+    this.counter.record('reset');
+    this.setBoard(fresh.clone(), true);
   }
 
   /**
@@ -195,7 +234,10 @@ export class Game {
       this.emit('change');
       return null;
     }
-    this.solutions ??= solve(this.start, HINT_SOLVE).solutions;
+    if (!this.solutions) {
+      this.solutions = solve(this.start, HINT_SOLVE).solutions;
+      this.emit('solutions');
+    }
     this.hintShown = nextHint(this.start, this.board, this.solutions);
     if (this.hintShown) this.hintsUsed++;
     this.lastAction = 'hint';

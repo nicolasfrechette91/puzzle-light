@@ -32,19 +32,20 @@ src/
     history.ts          undo/redo stack with coalescing
     solver.ts           beam-guided exhaustive solver (counts, min pieces, difficulty)
     hint.ts             next step towards the nearest solution, in light order
+    moves.ts            move counting, perfect (fewest moves), bests, solved-banner wording
     share.ts            level ⇄ URL share code (versioned base64url JSON)
     random.ts           seeded PRNG (mulberry32) + string → seed (FNV-1a)
     generate.ts         seeded procedural levels, verified by the solver
     names.ts            4,096 level names, never repeated within a sequence
-    daily.ts            daily puzzle: date → seed, move par, streak rules, share text
+    daily.ts            daily puzzle: date → seed, streak rules, share text
     endless.ts          endless mode: (tier, n) → seed → level
   game/                 browser-only
-    game.ts             controller: level, board, history, trace, win state
+    game.ts             controller: level, board, history, moves, trace, win state
     layout.ts           responsive geometry + hit testing
     input.ts            pointer/keyboard → game actions (tap, drag, long-press)
     render.ts           canvas drawing
-    hud.ts              DOM toolbar, notes, win banner; per-mode hooks (daily, endless)
-    level-select.ts     level sheet: daily and endless cards, worlds, par marks
+    hud.ts              DOM toolbar, move counter, notes, win banner; per-mode hooks (daily, endless)
+    level-select.ts     level sheet: daily and endless cards, worlds, par and perfect marks, bests
     generate.worker.ts  level generation off the main thread
     hint.worker.ts      solves the level being played, for hints
     worker-client.ts    promise-based requests to every worker; `supersede` cancels stale ones
@@ -52,7 +53,8 @@ src/
     dom.ts              `$`: an element the page must have
     daily-store.ts      daily results, streak, today's cached level
     endless-store.ts    endless progress per tier
-    settings.ts         display settings: colour symbols, reduce motion
+    progress.ts         solved levels, par bests and move bests (campaign ids, generated ids)
+    settings.ts         display settings: colour symbols, reduce motion, move counter
   editor/               level editor (lazy-loaded)
     model.ts            DOM-free editable level with undo; problem() explains what's missing
     editor-ui.ts        canvas painting + side panel; auto solver check; save/share/test
@@ -265,3 +267,16 @@ fewest decisions), the minimum pieces, the states explored and
 * Undo/redo are snapshot-based (boards are tiny). Consecutive rotations of the
   same piece coalesce into one undo step. Reset is itself undoable.
 * Win is detected continuously after every committed change — no "fire" button.
+
+## Moves (`src/core/moves.ts`)
+
+* **A move** is placing, moving or removing a piece, or a run of turns of the
+  same piece (grouped as undo groups them). Undo, redo and reset end a run but
+  never change the count; starting the level again sets it to 0 (D-079).
+* **Perfect** is the fewest moves over the solver's solutions: one per tray
+  piece placed, one per piece that must turn (whatever the angle), one per
+  movable piece that must move or be cleared away (D-080). `npm run levels`
+  shows it and fails if the solutions hints keep would give a different number.
+* **Bests** are saved per level in the progress record, keyed by id or by
+  generator id; a hinted solve is marked and never replaces an unhinted one
+  (D-081). The HUD and the level select show them quietly (D-082).

@@ -7,11 +7,14 @@
  *   npm run levels -- --strict         also fail on warnings
  *
  * Fails (exit 1) when a level does not parse, starts solved, has no solution,
- * cannot be fully searched within its time limit, or has a par below the true
- * minimum. Warns when a level has several solutions or a generous par.
+ * cannot be fully searched within its time limit, has a par below the true
+ * minimum, or would show the wrong perfect move count (the game works it out
+ * from the solutions hints keep). Warns when a level has several solutions or
+ * a generous par.
  */
 import { parseLevel, type LevelData } from '../src/core/level';
-import { solve, type SolveResult } from '../src/core/solver';
+import { perfectMoves } from '../src/core/moves';
+import { HINT_SOLVE, solve, type SolveResult } from '../src/core/solver';
 import { trace } from '../src/core/trace';
 import { PACKS } from '../src/levels';
 
@@ -40,6 +43,7 @@ interface Row {
   solutions: string;
   min: string;
   par: string;
+  perfect: string;
   difficulty: string;
   states: string;
   ms: string;
@@ -54,6 +58,7 @@ function check(level: LevelData, limitMs: number): Row {
     solutions: '-',
     min: '-',
     par: level.par === undefined ? '-' : String(level.par),
+    perfect: '-',
     difficulty: '-',
     states: '-',
     ms: '-',
@@ -85,6 +90,12 @@ function check(level: LevelData, limitMs: number): Row {
   }
   row.min = String(r.minPieces);
   row.difficulty = r.difficulty.toFixed(1);
+  // Perfect is the fewest moves over every solution (D-080). The game only has
+  // the solutions hints keep (best first), so those must give the same number.
+  const perfect = perfectMoves(board, r.solutions);
+  const kept = perfectMoves(board, r.solutions.slice(0, HINT_SOLVE.maxSolutions));
+  row.perfect = String(perfect);
+  if (kept !== perfect) row.errors.push(`the game would show perfect ${kept}, but ${perfect} moves is possible`);
   // A par level may have longer solutions; it is the par-length one that should be unique.
   const relevant = level.par === undefined ? r.solutions : r.solutions.filter((s) => s.pieces === r.minPieces);
   if (relevant.length > 1) {
@@ -117,6 +128,7 @@ function main(): void {
     ['solutions', 'sols', 5],
     ['min', 'min', 4],
     ['par', 'par', 4],
+    ['perfect', 'perf', 5],
     ['difficulty', 'diff', 6],
     ['states', 'states', 9],
     ['ms', 'ms', 6],

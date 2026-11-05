@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
-import { dailyLevel, movesPar } from '../core/daily';
+import { dailyLevel } from '../core/daily';
 import { EndlessSeries } from '../core/endless';
 import type { Generated, Tier } from '../core/generate';
 import { parseLevel } from '../core/level';
+import { perfectMoves } from '../core/moves';
 import type { WorkerReply } from './worker-client';
 
 /**
@@ -14,8 +15,8 @@ export type GenRequest = { id: number; kind: 'daily'; date: string } | { id: num
 
 export interface GenOutput {
   generated: Generated;
-  /** Fewest player actions that solve it (daily "par"). */
-  movesPar: number;
+  /** The fewest moves that solve it (D-080). */
+  perfect: number;
   /** Endless, distinct tiers: solution ids of levels 1…n, for the game to save. */
   history?: number[];
 }
@@ -45,7 +46,9 @@ self.onmessage = (e: MessageEvent<GenRequest>) => {
       history = s.history();
     }
     if (!g) throw new Error('no level found for this seed');
-    const out: GenOutput = { generated: g, movesPar: movesPar(parseLevel(g.level), g.solution) };
+    const perfect = perfectMoves(parseLevel(g.level), [g.solution]);
+    if (perfect === null) throw new Error('the level has no solution');
+    const out: GenOutput = { generated: g, perfect };
     if (history?.length) out.history = history;
     reply = { id: req.id, ok: true, out };
   } catch (err) {

@@ -79,6 +79,7 @@ export class Input {
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKey);
     game.on((e) => {
+      if (e === 'solutions') return; // nothing on the board changed
       // finishDrag clears `drag` before acting, so a change seen mid-drag came from
       // elsewhere (undo shortcut, level switch): the carried piece is stale.
       if (e === 'level' || this.drag) this.cancel();

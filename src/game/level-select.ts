@@ -1,4 +1,5 @@
 import type { Tier } from '../core/generate';
+import { isPerfect, PERFECT_MARK, plural } from '../core/moves';
 import { PACKS } from '../levels';
 import { $ } from './dom';
 import type { Game } from './game';
@@ -134,11 +135,25 @@ export class LevelSelect {
           t.disabled = !open[w];
           const done = this.progress.solved(level.id);
           const par = this.progress.parMet(level);
+          const best = this.progress.movesBest(level.id);
+          const perfect = !!best && isPerfect(best, this.progress.get(level.id)?.perfect);
           t.classList.toggle('solved', done);
           t.classList.toggle('current', level.id === current);
-          t.title = `${level.name}${done ? ' · solved' : ''}${level.par !== undefined ? ` · par ${level.par}${par ? ' ✦' : ''}` : ''}`;
+          const bestText = best ? ` · best ${plural(best.moves, 'move')}${best.hinted ? ' with a hint' : ''}${perfect ? `, ${PERFECT_MARK} perfect` : ''}` : '';
+          t.title = `${level.name}${done ? ' · solved' : ''}${bestText}${level.par !== undefined ? ` · par ${level.par}${par ? ' ✦' : ''}` : ''}`;
           t.setAttribute('aria-label', `${pack.name} ${n + 1}: ${t.title}`);
           if (par) t.append(Object.assign(document.createElement('span'), { className: 'mark', textContent: '✦' }));
+          if (best) {
+            // The best move count under the number (D-082): ◎ when perfect, a small bulb when a hint helped.
+            const line = Object.assign(document.createElement('span'), {
+              className: `best${perfect ? ' perfect' : ''}`,
+              textContent: perfect ? `${PERFECT_MARK} ${best.moves}` : String(best.moves),
+            });
+            line.setAttribute('aria-hidden', 'true');
+            if (best.hinted) line.append(bulb());
+            t.classList.add('has-best');
+            t.append(line);
+          }
           t.addEventListener('click', () => {
             this.close();
             this.onPick(i);
@@ -150,4 +165,18 @@ export class LevelSelect {
       }),
     );
   }
+}
+
+/** The hint button's lightbulb, small: this best used a hint. */
+function bulb(): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.classList.add('bulb');
+  for (const d of ['M9 18h6', 'M10 21h4', 'M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z']) {
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  return svg;
 }
