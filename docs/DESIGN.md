@@ -65,6 +65,7 @@ src/
     world1..7.json      { id, name, blurb, gate?, levels: LevelData[] } (7 = Expert, gate "stars")
 tests/                  vitest, runs the core in Node (solver checked against brute force)
 scripts/check-levels.ts npm run levels: solve and validate every level (CI)
+scripts/media/          capture.cjs + make-media.py: regenerate the README media (D-087)
 docs/                   this file + ROADMAP.md
 ```
 
@@ -279,4 +280,5 @@ fewest decisions), the minimum pieces, the states explored and
   shows it and fails if the solutions hints keep would give a different number.
 * **Bests** are saved per level in the progress record, keyed by id or by
   generator id; a hinted solve is marked and never replaces an unhinted one
-  (D-081). The HUD and the level select show them quietly (D-082).
+  (D-081). The HUD and the level select show them quietly (D-082), with a key
+  to the marks (D-085); the counter sits wherever it fits (D-086).

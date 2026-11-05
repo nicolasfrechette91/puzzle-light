@@ -20,6 +20,106 @@ by a short summary with the new decision entries.
 | 11 | World 6 (8+ combination levels) + 5 expert bonus levels | **done** |
 | 12 | Accessibility & feel: colour-blind mode, reduced motion, completion animations, focus | **done** |
 
+## State of the project (v1.0.0)
+
+Start here in a fresh session. Every milestone above is done, plus the
+audit, the move tracker and the v1.0 wrap-up below. `main` is tagged
+`v1.0.0`.
+
+**Live.** <https://nicolasfrechette91.github.io/puzzle-light/>. Every push to
+`main` runs `.github/workflows/deploy.yml`: tests, `npm run levels`, build,
+then Pages. To confirm a deploy, check that Actions run; some sandboxes can't
+reach `github.io` directly. `ci.yml` runs the same checks on every branch.
+
+**What's there.**
+* 56 hand-made levels: six worlds of 8–9 plus five Expert levels that open
+  with every ✦.
+* Hints: the next step towards the nearest solution.
+* The daily puzzle (from 2026-11-04) and endless mode at three tiers, both
+  generated.
+* The level editor, with a solver check and share links.
+* The move tracker: counter, bests, perfect.
+* Colour symbols, reduce motion, keyboard play and synthesised sound.
+
+**Where things live.** [DESIGN.md](DESIGN.md) maps every file. In short:
+* `src/core/` is pure, with no DOM, timers or randomness. It holds the
+  engine, solver, hints, generator, daily/endless rules, moves and share codes.
+* `src/game/` is the browser side. `main.ts` wires the modes together (the
+  campaign, `#daily`, `#endless=`, `#play=`, `#edit`, `#test`).
+* `src/editor/` is loaded on demand; `src/levels/` holds the worlds as JSON.
+
+**Checks.**
+* `npm test`: 258 tests across 22 files, about 4 s.
+* `npm run levels`: all 56 levels, about 3 s. It shows solutions, minimum
+  pieces, par, perfect and difficulty for each level.
+* `npm run build`: typecheck plus the bundle. Main is 102 kB (35 kB gzip),
+  the editor 19 kB, the workers 11–23 kB.
+* Browser checks: in `npm run dev`, `window.__pl` exposes the game, input,
+  layout, select, settings and stores. `scripts/media/capture.cjs` shows how
+  to drive it with Playwright, including real mouse drags.
+
+**Saved data** (localStorage, all through `src/game/local-store.ts`, each
+store checking every field it reads, D-071):
+
+| key | holds |
+|---|---|
+| `puzzle-light:progress` | per level (campaign id or `gen<v>-<tier>-<seed>`): solved, par best, hints, best moves, hinted, perfect; the last campaign level |
+| `puzzle-light:settings` | colour symbols, reduce motion, move counter |
+| `puzzle-light:sound` | `on` / `off` |
+| `puzzle-light:daily` | first result per date, streak |
+| `puzzle-light:daily-level:v<GENERATOR_VERSION>:<date>` | today's generated level and its perfect count |
+| `puzzle-light:endless`, `puzzle-light:endless-history:v<GENERATOR_VERSION>` | next level and solved count per tier; easy's solution ids |
+| `puzzle-light:draft`, `puzzle-light:my-levels` | the editor |
+
+**How work is done.** Follow [DECISIONS.md](DECISIONS.md): decide routine
+choices by its policy, log each one (the last entry is D-088), and ask the
+owner only about scope or feel changes or anything irreversible. Before
+committing, run `npm test`, `npm run build` and `npm run levels`. At the end,
+push the development branch and `main`, confirm CI and the deploy, and post a
+summary with the new entries.
+
+**Things to know.**
+* `GENERATOR_VERSION` (now 2) pins every daily and endless level. Bumping it
+  changes all of them, and saved bests and the endless history for the old
+  version are no longer used (D-050, D-073).
+* The game works out perfect from the ≤50 solutions the hint solve keeps.
+  `npm run levels` proves that's exact for the bundled levels, but an editor
+  or shared level with more than 50 solutions could show a perfect that is
+  too high.
+* Test and shared levels don't save bests (D-081).
+* Daily results from 2026-11-04 and 05 may predate the move tracker and use
+  the old count (D-083).
+
+## Next: ideas in priority order
+
+Nothing here is promised; each would go through the decision policy. Items
+that change the game's feel need the owner's yes first.
+
+1. **The daily clock talks too much to screen readers.** The status line is
+   `aria-live`, and the daily's time updates in it every second. Move the
+   ticking time out of the live region, or announce it only on solve. Small,
+   and a real accessibility fix (`dailyHooks` in `main.ts`, `index.html`).
+2. **Perfect for any level.** Have the hint worker return the minimum moves
+   over *all* solutions, not just the 50 it keeps, so editor and shared
+   levels are exact too. Show perfect in the editor's solver panel, which
+   already solves.
+3. **Progress backup.** Export and import of the progress record as JSON,
+   like editor levels, since localStorage is per device and per browser.
+4. **Installable and offline.** A web manifest and a service worker that
+   caches the build, so it works as a home-screen app. Cache-busting must
+   respect D-072 (stale workers after a redeploy).
+5. **Resume mid-level.** Keep the board (and the move count) of an unsolved
+   level across a reload. Today a reload restarts the level at 0 moves.
+6. **An Expert endless tier with portals.** D-052 left portals out of the
+   generator because construction gets non-local. Needs measured generation
+   times, like D-073.
+7. **More hand-made content.** A seventh world or a second Expert pack, made
+   the D-027 way and ordered by difficulty (D-025).
+8. **Tidy-ups.** `docs/media/fan-and-fork.webp` isn't used anywhere. The
+   `?l=` development switch opens every world, which is easy to forget.
+9. **Translations.** UI strings are inline English in `hud.ts`, `main.ts`,
+   `level-select.ts` and the editor; pulling them into one table comes first.
+
 ## M1: delivered
 
 * `src/core/`: pure engine (no DOM). Board, token-based level format, fixpoint
@@ -301,6 +401,24 @@ what existed (D-079 to D-083).
   daily (first play and replay), endless, shared levels and the option, on
   desktop and phone.
 
+## v1.0 wrap-up
+
+Asked by the owner after the move tracker (D-084 to D-088):
+
+* **Fix:** opening the daily or endless mode used to save that level as the
+  campaign's last-played level, so a reload resumed at the first unsolved
+  level instead. Only campaign levels can be "last played" now, and the mode
+  changes before the level does (D-084). A test covers it, and the browser
+  flow was checked (campaign → daily → endless → reload).
+* **A key to the marks** under Options, and a tooltip on each mark (D-085).
+* **The counter goes where it fits:** in the header when there is room, else
+  leading the status line. This also fixed labels cut short at 521–760 px
+  (D-086).
+* **README:** a features list, current wording, and every changed image
+  recaptured by `scripts/media/` (D-087).
+* **v1.0.0:** the version, and an annotated tag on `main` listing the
+  milestones (D-088).
+
 ## Open questions for the owner
 
 * ~~Licence (D-046)~~: MIT, chosen by the owner (D-048).
@@ -310,7 +428,8 @@ what existed (D-079 to D-083).
 
 ## Handoff notes
 
-* Run `npm test` and `npm run build` before committing.
+* See "State of the project" at the top first.
+* Run `npm test`, `npm run build` and `npm run levels` before committing.
 * In dev builds, `window.__pl` exposes `{ game, input, layout }` for browser
   automation (stripped from production).
 * Every level must pass `npm run levels` (solvable, ideally unique). Sample

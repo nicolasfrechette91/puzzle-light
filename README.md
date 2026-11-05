@@ -3,10 +3,27 @@
 A calm browser puzzle about light. Turn mirrors, split beams, filter and
 fold them through portals until every ring receives exactly its colour.
 
-![Placing two mirrors so red and green meet as yellow](docs/media/gameplay.gif)
+![Placing two mirrors so red and green meet as yellow, solved in the fewest moves](docs/media/gameplay.gif)
 
-**Play:** <https://nicolasfrechette91.github.io/puzzle-light/>, once GitHub
-Pages is enabled (see [Deploying](#deploying)).
+**Play:** <https://nicolasfrechette91.github.io/puzzle-light/> (desktop or
+phone, nothing to install).
+
+## Features
+
+* **56 hand-made levels** in six worlds plus an Expert pack, each proven by a
+  solver to have exactly one solution, with step-by-step hints.
+* **[Daily puzzle](#daily-puzzle):** a new generated puzzle every day, the
+  same for everyone, with a streak, a time and a spoiler-free share.
+* **[Endless mode](#endless-mode):** generated puzzles at easy, medium or
+  hard, as many as you like.
+* **[Level editor](#level-editor):** build, verify with the solver, test and
+  share levels as links.
+* **[Move tracker](#moves):** a quiet move count, your best per level and
+  each level's perfect score.
+* **[Accessibility](#accessibility):** colour symbols, reduced motion,
+  full keyboard play.
+* Calm by design: no timers outside the daily, no lives, no pressure cues.
+  Synthesised sound, art drawn in code.
 
 ## The rules
 
@@ -58,17 +75,22 @@ the fewest moves for every level, its **perfect** score:
 Solved in 9 moves · best 7 · perfect 6
 ```
 
-Your best is saved per level and shown on the level select, with ◎ for a
-perfect solve. A solve that used a hint is saved but marked, and any solve
-without hints replaces it. ✦ still marks par, the fewest *pieces*, on one
-level per world. **Options → Move counter: after solving** hides the count
-until the level is solved.
+Your best is saved per level and shown under each level in the level select,
+with a one-line key under **Options** (and a tooltip on every mark):
+
+* ◎ perfect: solved in the fewest moves, without a hint;
+* a small lightbulb: your best used a hint (any solve without hints replaces it);
+* ✦ par: solved with the fewest *pieces*, on one level per world (all six open
+  the Expert pack).
+
+**Options → Move counter: after solving** hides the count until the level is
+solved.
 
 <p>
   <img src="docs/media/split-and-merge.webp" width="49%" alt="Division 9: splitters separate and then mix red and green" />
   <img src="docs/media/white-again.webp" width="49%" alt="Spectrum 7: a prism's fan recombined into white" />
   <img src="docs/media/return-trip.webp" width="49%" alt="Wormholes 8: light goes through a portal and comes back" />
-  <img src="docs/media/level-select.webp" width="49%" alt="Level select with world progress" />
+  <img src="docs/media/level-select.webp" width="49%" alt="Level select with best moves, perfect and par marks, and their key" />
 </p>
 
 ## Controls
@@ -141,8 +163,8 @@ dependencies.
 ```bash
 npm install
 npm run dev        # http://localhost:5173  (?l=3 opens level 3)
-npm test           # engine, solver (checked against brute force), editor, progress
-npm run levels     # solve every level; fails on unsolvable or slow levels
+npm test           # engine, solver (checked against brute force), moves, editor, storage
+npm run levels     # solve every level; fails on unsolvable or slow levels, shows each perfect
 npm run build      # typecheck + static build into dist/
 ```
 
@@ -152,16 +174,20 @@ src/game/     canvas renderer, input, HUD, sound, level select, progress
 src/editor/   level editor (lazy-loaded) and its solver worker
 src/levels/   the worlds (and the Expert bonus) as JSON
 tests/        vitest suites and sample-level fixtures
-scripts/      npm run levels
+scripts/      npm run levels, npm run generate, and media/ (README media capture)
 ```
+
+The README media come from `scripts/media/capture.cjs` (Playwright against
+`npm run dev`) and `scripts/media/make-media.py` (Pillow); see the header of
+the capture script.
 
 ## Deploying
 
 `.github/workflows/deploy.yml` tests, solves every level, builds and
 publishes `dist/` to GitHub Pages on every push to `main`. It can also be run
-by hand. To enable it, set **Settings → Pages → Build and deployment →
-Source** to **GitHub Actions**. The build uses relative paths, so it works
-from any sub-path.
+by hand. Pages' source is set to **GitHub Actions** (Settings → Pages → Build
+and deployment). The build uses relative paths, so it works from any
+sub-path.
 
 `.github/workflows/ci.yml` runs the same checks on every push and pull
 request.
@@ -172,7 +198,8 @@ request.
   tracing, solver
 * [docs/DECISIONS.md](docs/DECISIONS.md): decision policy and the log of every
   design decision
-* [docs/ROADMAP.md](docs/ROADMAP.md): milestones and handoff notes
+* [docs/ROADMAP.md](docs/ROADMAP.md): milestones, the state of the project and
+  what could come next
 
 Everything is original: the art is drawn in code, and the sound is synthesised
 in the browser.

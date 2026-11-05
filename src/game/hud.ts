@@ -51,6 +51,7 @@ export class Hud {
   /** The level has been solved since it was started, so the counter may show. */
   private solvedOnce = false;
   private readonly el = {
+    title: $('#play-view .title'),
     num: $('#level-num'),
     moves: $('#moves'),
     movesInline: $('#moves-inline'),
@@ -96,6 +97,7 @@ export class Hud {
       this.update();
     });
     window.addEventListener('keydown', this.onKey);
+    window.addEventListener('resize', () => this.placeCounter());
     game.on((e) => {
       if (e === 'level') {
         this.notice = this.bannerNote = '';
@@ -143,6 +145,19 @@ export class Hud {
   say(message: string): void {
     this.notice = message;
     this.update();
+  }
+
+  /**
+   * The move counter (D-082) sits in the header when it fits there; on a
+   * stacked phone title, or where it would cut the level label or name short,
+   * it leads the status line instead.
+   */
+  private placeCounter(): void {
+    const { el } = this;
+    el.view.classList.remove('moves-in-status');
+    if (el.moves.hidden) return;
+    const cut = (e: HTMLElement) => e.scrollWidth > e.clientWidth;
+    if (getComputedStyle(el.title).flexDirection === 'column' || cut(el.num) || cut(el.name)) el.view.classList.add('moves-in-status');
   }
 
   private onKey = (e: KeyboardEvent): void => {
@@ -198,9 +213,9 @@ export class Hud {
     el.sound.title = on ? 'Sound on (M)' : 'Sound off (M)';
     el.sound.setAttribute('aria-pressed', String(on));
     el.name.textContent = g.level.name;
-    // The move counter (D-082): in the header, or leading the status line on phones.
     el.moves.textContent = el.movesInline.textContent = plural(g.moves, 'move');
     el.moves.hidden = el.movesInline.hidden = this.movesAfterSolve() && !this.solvedOnce;
+    this.placeCounter();
     document.title = `${g.level.name} · Puzzle Light`;
     el.prev.disabled = !g.hasPrev;
     el.next.disabled = !g.hasNext;

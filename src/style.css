@@ -209,26 +209,30 @@ body {
   display: none;
 }
 
-/* Phones: the header has no room, so the count leads the status line instead. */
-@media (max-width: 520px) {
+/*
+ * When the header can't hold the count (a stacked phone title, or a label or
+ * name it would cut short), the HUD sets .moves-in-status and the count leads
+ * the status line instead (D-082).
+ */
+.moves-in-status .title .moves:not([hidden]) {
   /* Kept for screen readers, which read it on demand rather than at every move. */
-  .title .moves:not([hidden]) {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-  .moves-inline:not([hidden]) {
-    display: inline;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .moves-inline:not([hidden]) + #note-text:not(:empty)::before {
-    content: ' · ';
-    color: var(--muted);
-  }
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.moves-in-status .moves-inline:not([hidden]) {
+  display: inline;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.moves-in-status .moves-inline:not([hidden]) + #note-text:not(:empty)::before {
+  content: ' · ';
+  color: var(--muted);
 }
 
 .pill {
@@ -490,7 +494,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 500;
@@ -767,6 +771,48 @@ body {
   flex-wrap: wrap;
   gap: 6px;
   padding: 0 16px 10px;
+}
+
+/* The key to the tile marks (D-085): one quiet line, wrapping between entries. */
+.sheet-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: -2px 0 0;
+  padding: 0 16px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sheet-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.sheet-key .key-best {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-key .key-gold {
+  color: #ffe08a;
+}
+
+.key-bulb,
+.tile .best .hinted {
+  display: inline-flex;
+}
+
+.key-bulb .bulb {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .segmented {

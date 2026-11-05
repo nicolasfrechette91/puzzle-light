@@ -25,6 +25,7 @@ export class LevelSelect {
     this.game = game;
     this.progress = progress;
     $('#levels-close').addEventListener('click', () => this.close());
+    $('#key-bulb').append(bulb());
     this.root.addEventListener('click', (e) => {
       if (e.target === this.root) this.close();
     });
@@ -142,15 +143,19 @@ export class LevelSelect {
           const bestText = best ? ` · best ${plural(best.moves, 'move')}${best.hinted ? ' with a hint' : ''}${perfect ? `, ${PERFECT_MARK} perfect` : ''}` : '';
           t.title = `${level.name}${done ? ' · solved' : ''}${bestText}${level.par !== undefined ? ` · par ${level.par}${par ? ' ✦' : ''}` : ''}`;
           t.setAttribute('aria-label', `${pack.name} ${n + 1}: ${t.title}`);
-          if (par) t.append(Object.assign(document.createElement('span'), { className: 'mark', textContent: '✦' }));
+          if (par) t.append(Object.assign(document.createElement('span'), { className: 'mark', textContent: '✦', title: MARK_TIPS.par }));
           if (best) {
             // The best move count under the number (D-082): ◎ when perfect, a small bulb when a hint helped.
-            const line = Object.assign(document.createElement('span'), {
-              className: `best${perfect ? ' perfect' : ''}`,
-              textContent: perfect ? `${PERFECT_MARK} ${best.moves}` : String(best.moves),
-            });
+            // Each mark explains itself on hover (D-085); the tile's label says it all for screen readers.
+            const line = Object.assign(document.createElement('span'), { className: `best${perfect ? ' perfect' : ''}` });
             line.setAttribute('aria-hidden', 'true');
-            if (best.hinted) line.append(bulb());
+            if (perfect) line.append(Object.assign(document.createElement('span'), { textContent: PERFECT_MARK, title: MARK_TIPS.perfect }));
+            line.append(Object.assign(document.createElement('span'), { textContent: String(best.moves), title: `Your best: ${plural(best.moves, 'move')}` }));
+            if (best.hinted) {
+              const hint = Object.assign(document.createElement('span'), { className: 'hinted', title: MARK_TIPS.hint });
+              hint.append(bulb());
+              line.append(hint);
+            }
             t.classList.add('has-best');
             t.append(line);
           }
@@ -167,8 +172,15 @@ export class LevelSelect {
   }
 }
 
-/** The hint button's lightbulb, small: this best used a hint. */
-function bulb(): SVGSVGElement {
+/** What each tile mark means, for its tooltip; the key under Options says the same (D-085). */
+const MARK_TIPS = {
+  par: 'Par: solved with the fewest pieces',
+  perfect: 'Perfect: solved in the fewest moves',
+  hint: 'This best used a hint',
+} as const;
+
+/** The hint button's lightbulb, small: this best used a hint (also drawn in the key under Options). */
+export function bulb(): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');

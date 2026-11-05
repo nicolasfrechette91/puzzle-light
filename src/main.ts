@@ -529,14 +529,17 @@ async function openEditor(level?: LevelData): Promise<void> {
 }
 
 function play(kind: 'campaign' | 'shared' | 'test' | 'daily' | 'endless', levels: LevelData[], index = 0, hooks: ModeHooks = {}): void {
-  if (mode === 'campaign') campaignIndex = game.index;
+  const was = mode;
+  if (was === 'campaign') campaignIndex = game.index;
   editor?.close();
   editView.hidden = true;
   playView.hidden = false;
   game.isOpen = kind === 'campaign' && devStart === null ? campaignOpen : () => true;
-  if (kind !== mode || kind !== 'campaign') game.setLevels(levels, index);
-  hud.setMode(kind, hooks);
+  // The mode changes before the level does, so the 'level' event sees the new
+  // one: a daily or endless level must never become the campaign's last level (D-084).
   mode = kind;
+  if (kind !== was || kind !== 'campaign') game.setLevels(levels, index);
+  hud.setMode(kind, hooks);
 }
 
 function route(): void {
@@ -579,7 +582,7 @@ hud.onEdit = () => {
 };
 window.addEventListener('hashchange', route);
 if (location.hash) route();
-progress.setLast(game.level.id);
+if (mode === 'campaign') progress.setLast(game.level.id);
 okBefore = okNow();
 
 requestFrame();

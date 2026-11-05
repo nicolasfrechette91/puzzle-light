@@ -715,3 +715,37 @@ Process:
   * **Squares:** one per move. More turns of the same piece update that move's square.
   * **Saved data:** a result saved with `par` is read as `perfect`; results from before this change keep their numbers. A cached daily level without `perfect` is generated again, so its perfect follows the new count.
 * **Reason:** The daily's moves and par now follow D-079 and D-080. Saved results still load (policy 4).
+
+### D-084 · Only campaign levels are "last played" (v1.0, by: claude)
+* **Question:** Opening the daily or an endless tier saved that level as the campaign's last-played level. `play()` changed the mode only after loading the level, so the `'level'` event still saw "campaign". On the next visit `resumeIndex` couldn't find the level and fell back to the first unsolved one. Opening the page on a `#play=` link did the same. How should it be fixed?
+* **Choice:** both layers.
+  * **`play()`** switches the mode before loading the level, and the start-up write happens only in the campaign.
+  * **`Progress`** accepts and keeps a last level only if it is a campaign id. A `last` saved by the bug is dropped when read (D-071), so those players resume as if nothing were saved.
+* **Test:** `tests/progress.test.ts` feeds daily, endless, generated, shared and draft ids to `setLast` and checks that the campaign still resumes at 2-3. It fails on the old code. A browser check went campaign 2-3 → daily → endless → reload on the daily → reload, and resumed at 2-3.
+* **Reason:** Fixing the order fixes the cause; the guard makes the rule ("the game resumes in the campaign") hold whatever calls it, and that is what the test can check (policy 3).
+
+### D-085 · A key to the tile marks (v1.0, by: claude)
+* **Question:** The tiles carry four quiet marks (best moves, ◎, a bulb, ✦), and touch screens have no tooltips. How are they explained?
+* **Options:** a "?" button that opens an explanation; one line of key under the Options row; tooltips alone.
+* **Choice:** one muted line under Options, always shown: "7 = your best moves · ◎ = perfect, the fewest moves · (bulb) = your best used a hint · ✦ = par, the fewest pieces". It wraps between entries on phones. Every mark on a tile also has its own tooltip ("Par: solved with the fewest pieces", "Perfect: solved in the fewest moves", "Your best: 4 moves", "This best used a hint"), and the tile's label already spells everything out for screen readers.
+* **Reason:** A line is visible on touch screens with no extra tap, and costs one row (policy 1). The bulb is the hint button's own icon, so it reads as "hint" before the key does.
+
+### D-086 · The move counter goes where it fits (v1.0, by: claude)
+* **Question:** Recapturing the GIF at 640 px showed the header counter (D-082) cutting the level label and name short ("Reflection… Warm Li…") between 521 and 760 px. The phone rule only applied at 520 px and below.
+* **Options:** move the breakpoint to 760 px; decide by measuring.
+* **Choice:** measure. After each update, and on resize, the HUD puts the count in the status line (`.moves-in-status`) if the title is stacked (phones) or if the label or name is cut short. Otherwise the count stays in the header. A fixed 760 px breakpoint would still cut long names ("Three Ways Through", "Folded Spectrum") at 800 px. Checked at 360–1280 px: the counter never shortens the label or name.
+* **Reason:** The level's name matters more than the count (policy 1). One measured rule covers every width, name and mode.
+
+### D-087 · README media are scripted (v1.0, by: claude)
+* **Question:** Every play-view image showed the old HUD and banner, and the level-select image predated Options, the daily and endless. How are they redone, and how will the next session redo them?
+* **Choice:**
+  * `scripts/media/capture.cjs` (Playwright against `npm run dev`, using `window.__pl`) and `scripts/media/make-media.py` (Pillow) regenerate them, in the sizes and formats of D-045. The intermediate PNGs go to `scripts/media/out/`, which git ignores.
+  * **Recaptured:** split-and-merge (◎ perfect), white-again (new best), return-trip (best and perfect), the level select with lived-in progress and the key, the phone, and the gameplay GIF. The GIF is the same Warm Light session, played with real drags and clicks, now 64 frames and 330 KB.
+  * **Unchanged:** `editor.webp` (no counter in the editor) and `fan-and-fork.webp` (not referenced anywhere; listed as a tidy-up in the roadmap).
+  * **README:** a features list, the live link (Pages is on), the key, and how the media are made.
+* **Reason:** Media that a script makes can be made again (policy 3). Playwright and Pillow stay out of `package.json`, because only the media need them.
+
+### D-088 · Version 1.0.0 (v1.0, by: claude)
+* **Question:** The owner asked to tag `main` as v1.0.0 with a release note. `package.json` still said 0.1.0.
+* **Choice:** `package.json` and the lock file move to 1.0.0 in the release commit, and `v1.0.0` is an annotated tag whose message is the release note: one line per milestone. The tag message serves as the note, because a GitHub Release object can't be created from this session's tools.
+* **Reason:** The tag and the version should say the same thing. The tag is the owner's instruction, and it can be deleted and re-pushed if wanted, so nothing is lost.

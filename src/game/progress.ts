@@ -1,5 +1,6 @@
 import type { LevelData } from '../core/level';
 import { beats, type MoveBest } from '../core/moves';
+import { PACKS } from '../levels';
 import { isCount, isRecord, readJson, writeJson } from './local-store';
 
 /** Levels to solve in a world to open the next one (D-036). */
@@ -80,6 +81,9 @@ export function resumeIndex(
 
 const KEY = 'puzzle-light:progress';
 
+/** Ids of the bundled campaign levels: the only levels the game resumes at. */
+const CAMPAIGN_IDS: ReadonlySet<string> = new Set(PACKS.flatMap((p) => p.levels.map((l) => l.id)));
+
 /**
  * Records are keyed by level: a hand-made level by its id, a generated one by
  * `generatedId` (generator version, tier and seed; D-081). Only campaign ids
@@ -90,8 +94,11 @@ interface Stored {
   last?: string;
 }
 
-/** Stored progress with anything malformed dropped: only solved levels, with valid counts (D-071). */
-function clean(raw: unknown): Stored {
+/**
+ * Stored progress with anything malformed dropped: only solved levels, with
+ * valid counts (D-071), and a last level only if it is a campaign level (D-084).
+ */
+function clean(raw: unknown, campaign: ReadonlySet<string>): Stored {
   const out: Stored = { levels: {} };
   if (!isRecord(raw)) return out;
   if (isRecord(raw.levels)) {
@@ -108,13 +115,20 @@ function clean(raw: unknown): Stored {
       out.levels[id] = level;
     }
   }
-  if (typeof raw.last === 'string') out.last = raw.last;
+  if (typeof raw.last === 'string' && campaign.has(raw.last)) out.last = raw.last;
   return out;
 }
 
 /** Progress saved in localStorage. Every access is guarded; failures just forget. */
 export class Progress {
-  private data: Stored = clean(readJson(KEY));
+  private readonly campaign: ReadonlySet<string>;
+  private data: Stored;
+
+  /** `campaign`: the level ids the game may resume at (the bundled worlds unless a test says otherwise). */
+  constructor(campaign: ReadonlySet<string> = CAMPAIGN_IDS) {
+    this.campaign = campaign;
+    this.data = clean(readJson(KEY), campaign);
+  }
 
   private save(): void {
     writeJson(KEY, this.data);
@@ -130,8 +144,9 @@ export class Progress {
     return this.data.last;
   }
 
+  /** Remember the campaign level being played; any other level (daily, endless, shared, test) is ignored. */
   setLast(id: string): void {
-    if (this.data.last === id) return;
+    if (this.data.last === id || !this.campaign.has(id)) return;
     this.data.last = id;
     this.save();
   }
