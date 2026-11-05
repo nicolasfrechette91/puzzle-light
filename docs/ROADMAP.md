@@ -23,8 +23,8 @@ by a short summary with the new decision entries.
 ## State of the project (v1.0.0)
 
 Start here in a fresh session. Every milestone above is done, plus the
-audit, the move tracker and the v1.0 wrap-up below. `main` is tagged
-`v1.0.0`.
+audit, the move tracker and the v1.0 wrap-up below. This is release 1.0.0;
+its note is in [RELEASES.md](RELEASES.md).
 
 **Live.** <https://nicolasfrechette91.github.io/puzzle-light/>. Every push to
 `main` runs `.github/workflows/deploy.yml`: tests, `npm run levels`, build,
@@ -416,8 +416,9 @@ Asked by the owner after the move tracker (D-084 to D-088):
   (D-086).
 * **README:** a features list, current wording, and every changed image
   recaptured by `scripts/media/` (D-087).
-* **v1.0.0:** the version, and an annotated tag on `main` listing the
-  milestones (D-088).
+* **v1.0.0:** the version, and a release note listing the milestones in
+  [RELEASES.md](RELEASES.md). The session couldn't push the `v1.0.0` tag;
+  the owner adds it (D-088).
 
 ## Open questions for the owner
 

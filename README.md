@@ -200,6 +200,7 @@ request.
   design decision
 * [docs/ROADMAP.md](docs/ROADMAP.md): milestones, the state of the project and
   what could come next
+* [docs/RELEASES.md](docs/RELEASES.md): release notes
 
 Everything is original: the art is drawn in code, and the sound is synthesised
 in the browser.

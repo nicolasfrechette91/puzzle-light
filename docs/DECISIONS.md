@@ -747,5 +747,5 @@ Process:
 
 ### D-088 · Version 1.0.0 (v1.0, by: claude)
 * **Question:** The owner asked to tag `main` as v1.0.0 with a release note. `package.json` still said 0.1.0.
-* **Choice:** `package.json` and the lock file move to 1.0.0 in the release commit, and `v1.0.0` is an annotated tag whose message is the release note: one line per milestone. The tag message serves as the note, because a GitHub Release object can't be created from this session's tools.
-* **Reason:** The tag and the version should say the same thing. The tag is the owner's instruction, and it can be deleted and re-pushed if wanted, so nothing is lost.
+* **Choice:** `package.json` and the lock file move to 1.0.0. The release note (one line per milestone) lives in `docs/RELEASES.md`, so it is versioned with the code and doesn't depend on any one tool. `v1.0.0` should be an annotated tag on `main`. This session's git proxy refused tag pushes (branches pushed fine), and its GitHub tools can't create tags or releases, so the tag is left to the owner, with the command in `RELEASES.md`.
+* **Reason:** The tag and the version should say the same thing. Keeping the note in the repository means it survives the session even though the tag couldn't be pushed from it.
