@@ -749,3 +749,38 @@ Process:
 * **Question:** The owner asked to tag `main` as v1.0.0 with a release note. `package.json` still said 0.1.0.
 * **Choice:** `package.json` and the lock file move to 1.0.0. The release note (one line per milestone) lives in `docs/RELEASES.md`, so it is versioned with the code and doesn't depend on any one tool. `v1.0.0` should be an annotated tag on `main`. This session's git proxy refused tag pushes (branches pushed fine), and its GitHub tools can't create tags or releases, so the tag is left to the owner, with the command in `RELEASES.md`.
 * **Reason:** The tag and the version should say the same thing. Keeping the note in the repository means it survives the session even though the tag couldn't be pushed from it.
+
+### D-089 · Perfect counts every solution; an unfinished search gives an estimate (after v1.0, by: claude)
+* **Question:** The game worked out perfect from the 50 solutions the hint solve keeps, and `npm run levels` only proved that exact for the bundled levels. On an editor or shared level with more solutions, could the fewest-move solution be among the ones dropped?
+* **Finding:** yes. Solutions are sorted by fewest *tray pieces*, and turning a piece isn't a decision, so a cheaper solution can sort far back. In a 4×4 block of turnable mirrors (1,664 solutions), all of the first 50 turn two or more mirrors (perfect 2), while one tray mirror dropped in the corner solves it in 1 move; it is solution 389. A random search of 34,351 small boards (10,676 with more than 50 solutions) found no such case, so it is rare but real.
+* **Options:** compute the true minimum; label it an estimate.
+* **Choice:** the true minimum, labelled an estimate only when that is impossible.
+  * **`solveForPlay`** (core): one search, as before, then perfect over *every* solution found. The solver already holds them all, and scanning 3,679 solutions took 28 ms against 3.4 s of searching. Hints still get the best 50.
+  * **The hint worker** returns `{ solutions, perfect, exact }`. Without a worker the game calls the same function.
+  * **Exact when the search finished.** If the hint budget (2M states) runs out first, perfect is only the fewest found: an estimate. `game.perfect` is then null and `game.perfectEstimate` holds the number. The banner reads "perfect ~6", with a tooltip saying why. An estimate never earns ◎ and is never saved with a best, because the true minimum may be lower.
+  * **`npm run levels`** now runs the game's own solve for each level and fails if it would be an estimate or differ from the full search. All 56 levels are exact.
+* **Reason:** Policy 2 (a solver-proven number, or an honest label) and policy 3 (one function for the worker, the game and the check).
+
+### D-090 · The daily clock isn't announced (after v1.0, by: claude)
+* **Question:** The status line is an `aria-live` region, and the daily wrote its running time there every second, so screen readers could read it out every second.
+* **Choice:**
+  * **The time ticks in its own span** on the status line, marked `aria-hidden`. The live text becomes a static "perfect 6", so nothing in the live region changes while the clock runs. A visually hidden "Time 1:23" sits in the header, outside the live region, for screen readers to read on demand.
+  * **It is announced once, on solve:** the solved banner (live) ends with the time and streak, "… · perfect 6 · 1:23 · 🔥 2".
+  * **No rewriting the same words:** the HUD writes the status text and the banner only when they change, because rewriting identical text can be announced again. Separators beside the hidden spans now live inside them, so screen readers no longer hear a stray "·".
+  * **One tick sooner:** the first move refreshes the status line at once, rather than at the next tick.
+* **Checked** in Chromium on desktop and phone sizes. Over 3 s of ticking the status line's accessibility snapshot stayed "perfect 4", with no live-region mutations outside hidden spans. Hints still updated it, the banner was announced with the time, and nothing changed afterwards. Unit tests pin the split: `dailyStatus` gives the same live text at any elapsed time, and `dailySolvedNote` carries the time.
+* **Reason:** Accessibility, with nothing given up visually (policy 1).
+
+### D-091 · Progress backup: a file out, merged back in (after v1.0, by: claude)
+* **Question:** Progress lives in one browser's localStorage. What do Export and Import cover, and what happens to progress already on the device?
+* **Options:** import replaces this device's progress (after a confirmation); import merges.
+* **Choice:** merge, so importing can never lose or worsen anything, and there is nothing to confirm.
+  * **Export** (Options → Export progress) downloads `puzzle-light-progress-<date>.json`: `{ kind: "puzzle-light/progress", version: 1, exported, progress, daily, endless }`. It holds the campaign record (solved levels, par bests, move bests, perfect counts, the last level), the daily results and streak, and endless progress per tier.
+  * **Left out:** settings and sound (preferences, not progress), the endless solution history (a cache that is rebuilt, D-073), and editor levels, which have their own JSON export.
+  * **Import** (Options → Import progress) reads a chosen file and checks the envelope: JSON, the right kind, a version this build reads, at most 2 MB. Each store then cleans its section field by field, exactly as it cleans localStorage (D-071), and merges it:
+    * **Levels:** solved if either side says so. Par pieces and hints take the fewer. Move bests follow `beats` (D-081), so an unhinted best beats a hinted one. A missing perfect count is filled in. This device's last level stays.
+    * **Daily:** results are combined, keeping this device's on a shared date (first completion, D-055). The streak is rebuilt from every solved date (`streakFromDates`, reusing the streak rule), and the best streak is the longest any side recorded.
+    * **Endless:** each tier keeps the further point and the larger solved count. The sequence is the same everywhere (D-058), so the two never conflict.
+  * **Feedback:** one line under Options: "Saved …", "Imported 4 levels, 1 daily result.", "Nothing new in that backup: this device is already ahead.", or why a file was refused. The level select redraws at once, with no reload.
+* **Tests:** a round trip to a fresh device, every merge rule, importing twice, cleaning of bad fields, and each refusal (storage untouched). A browser check exported a real download, cleared the device, refused a non-backup and imported the file: the same records came back.
+* **Reason:** It reuses each store's own cleaning (policy 3), and a merge is the clearer promise to a player than "this will overwrite" (policy 1).

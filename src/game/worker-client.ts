@@ -1,5 +1,5 @@
 import type { LevelData } from '../core/level';
-import type { Solution } from '../core/solver';
+import type { PlaySolve } from '../core/moves';
 import type { GenOutput, GenRequest } from './generate.worker';
 
 /** What every worker here replies: the request id, and a result or an error message. */
@@ -80,8 +80,8 @@ type WithoutId<R> = R extends { id: number } ? Omit<R, 'id'> : never;
 export const generator = () =>
   new WorkerClient<WithoutId<GenRequest>, GenOutput>(() => new Worker(new URL('./generate.worker.ts', import.meta.url), { type: 'module' }));
 
-/** Solutions for hints, found off the main thread; only the level being played matters. */
+/** Solutions for hints and the perfect count, found off the main thread; only the level being played matters. */
 export const hintSolver = () =>
-  new WorkerClient<{ level: LevelData }, Solution[]>(() => new Worker(new URL('./hint.worker.ts', import.meta.url), { type: 'module' }), {
+  new WorkerClient<{ level: LevelData }, PlaySolve>(() => new Worker(new URL('./hint.worker.ts', import.meta.url), { type: 'module' }), {
     supersede: true,
   });

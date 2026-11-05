@@ -48,6 +48,11 @@ export class LevelSelect {
     (this.body.querySelector<HTMLElement>('.tile.current') ?? $('#levels-close')).focus();
   }
 
+  /** Draw the sheet again if it is open (after progress changed underneath it, e.g. an import). */
+  refresh(): void {
+    if (this.isOpen) this.render();
+  }
+
   close(): void {
     if (this.root.hidden) return;
     this.root.hidden = true;

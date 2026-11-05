@@ -19,6 +19,7 @@
           <span id="level-num" class="num"></span>
           <h1 id="level-name"></h1>
           <span id="moves" class="moves" title="Moves: placing, moving or removing a piece, or turning one"></span>
+          <span id="clock" class="sr-only"></span>
         </div>
         <nav class="controls" aria-label="Game controls">
           <button id="btn-levels" class="btn" type="button" aria-label="Levels" title="Levels (L)">
@@ -53,7 +54,7 @@
         </nav>
       </header>
       <div class="status" aria-live="polite">
-        <p id="note"><span id="moves-inline" class="moves-inline" aria-hidden="true"></span><span id="note-text"></span></p>
+        <p id="note"><span id="moves-inline" class="moves-inline" aria-hidden="true"></span><span id="clock-inline" class="clock-inline" aria-hidden="true"></span><span id="note-text"></span></p>
         <button id="btn-skip" class="pill small" type="button" title="Skip to a new puzzle (N)" hidden>Skip</button>
         <div id="solved" hidden>
           <span id="solved-text">Solved</span>
@@ -79,7 +80,11 @@
             <button id="opt-symbols" class="chip-btn" type="button" aria-pressed="false" title="A shape for each colour of light: red ▲, green ■, blue ●">Colour symbols: off</button>
             <button id="opt-motion" class="chip-btn" type="button" aria-pressed="false">Reduce motion: off</button>
             <button id="opt-moves" class="chip-btn" type="button" aria-pressed="true" title="Show the move count while you play, or only once the level is solved">Move counter: on</button>
+            <button id="backup-export" class="chip-btn" type="button" title="Download your progress as a file, to keep or to move to another device">Export progress</button>
+            <button id="backup-import" class="chip-btn" type="button" title="Add progress from a backup file; nothing on this device is lost">Import progress</button>
+            <input id="backup-file" type="file" accept=".json,application/json" hidden />
           </div>
+          <p id="backup-status" class="backup-status" role="status"></p>
           <p class="sheet-key">
             <span><span class="key-best">7</span> = your best moves</span>
             <span><span class="key-gold">◎</span> = perfect, the fewest moves</span>

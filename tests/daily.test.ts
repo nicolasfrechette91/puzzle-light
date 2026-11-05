@@ -4,10 +4,13 @@ import {
   dailyLevel,
   dailyNumber,
   dailySeed,
+  dailySolvedNote,
+  dailyStatus,
   dayNumber,
   formatTime,
   shareText,
   streakAfterSolve,
+  streakFromDates,
   streakOn,
 } from '../src/core/daily';
 import { parseLevel } from '../src/core/level';
@@ -62,6 +65,29 @@ describe('streaks', () => {
     expect(streakOn(s, '2026-11-07')).toBe(0);
     s = streakAfterSolve(s, '2026-11-08');
     expect(s).toEqual({ last: '2026-11-08', current: 1, best: 2 });
+  });
+});
+
+describe('daily status (D-090)', () => {
+  it('keeps the ticking time out of the words screen readers announce', () => {
+    expect(dailyStatus(6, null)).toEqual({ text: 'Perfect is 6 moves. The clock starts with your first move.', clock: null });
+    const early = dailyStatus(6, 1_000);
+    const later = dailyStatus(6, 83_000);
+    expect(early.text).toBe(later.text); // nothing new to announce while the clock runs
+    expect(early.text).not.toMatch(/\d:\d\d/);
+    expect([early.clock, later.clock]).toEqual(['0:01', '1:23']);
+  });
+
+  it('announces the time once, in the solved banner', () => {
+    expect(dailySolvedNote({ timeMs: 83_000 }, 3)).toBe('1:23 · 🔥 3');
+    expect(dailySolvedNote({ timeMs: 83_000 }, 1)).toBe('1:23');
+  });
+});
+
+describe('streak from dates (D-091)', () => {
+  it('adds up any set of solved days, in any order', () => {
+    expect(streakFromDates(['2026-11-07', '2026-11-04', '2026-11-05', '2026-11-05'])).toEqual({ last: '2026-11-07', current: 1, best: 2 });
+    expect(streakFromDates([])).toEqual({ current: 0, best: 0 });
   });
 });
 

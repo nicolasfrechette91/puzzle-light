@@ -194,6 +194,42 @@ export class Progress {
     this.save();
   }
 
+  /** A copy of everything saved, for a backup (D-091). */
+  snapshot(): { levels: Record<string, LevelProgress>; last?: string } {
+    return structuredClone(this.data);
+  }
+
+  /**
+   * Merge a backup's progress into this device's, cleaned exactly as saved
+   * data is when read (D-071): a level is solved if either says so, and each
+   * best keeps the better of the two (par pieces and hints the fewer, moves by
+   * `beats`). Returns how many levels gained something.
+   */
+  merge(raw: unknown): number {
+    const incoming = clean(raw, this.campaign);
+    let gained = 0;
+    for (const [id, p] of Object.entries(incoming.levels)) {
+      const mine = this.data.levels[id];
+      const before = JSON.stringify(mine);
+      const m: LevelProgress = mine ?? { solved: true };
+      m.solved = true;
+      if (p.best !== undefined) m.best = Math.min(m.best ?? Infinity, p.best);
+      if (p.hints !== undefined) m.hints = Math.min(m.hints ?? Infinity, p.hints);
+      const theirs = p.moves === undefined ? undefined : p.movesHinted ? { moves: p.moves, hinted: true as const } : { moves: p.moves };
+      if (theirs && beats(theirs, this.movesBest(id))) {
+        m.moves = theirs.moves;
+        if (theirs.hinted) m.movesHinted = true;
+        else delete m.movesHinted;
+      }
+      if (m.perfect === undefined && p.perfect !== undefined) m.perfect = p.perfect;
+      this.data.levels[id] = m;
+      if (JSON.stringify(m) !== before) gained++;
+    }
+    this.data.last ??= incoming.last;
+    this.save();
+    return gained;
+  }
+
   /** Did the best solve meet par? */
   parMet = (level: Pick<LevelData, 'id' | 'par'>): boolean => {
     const p = this.data.levels[level.id];

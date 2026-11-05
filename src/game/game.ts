@@ -2,8 +2,7 @@ import type { Board } from '../core/board';
 import { nextHint, type Hint } from '../core/hint';
 import { History } from '../core/history';
 import { parseLevel, type LevelData } from '../core/level';
-import { MoveCounter, perfectMoves, type MoveKind } from '../core/moves';
-import { HINT_SOLVE, solve, type Solution } from '../core/solver';
+import { MoveCounter, solveForPlay, type MoveKind, type PlaySolve } from '../core/moves';
 import { trace, type Trace } from '../core/trace';
 
 /** The player action behind the latest 'change' (for sound and effects). */
@@ -41,18 +40,18 @@ export class Game {
   /** Whether level `i` may be played (world gates in the campaign). */
   isOpen: (i: number) => boolean = () => true;
   /**
-   * Finds a level's solutions off the main thread (D-061). Without it, the
-   * first hint solves synchronously.
+   * Solves a level off the main thread (D-061): its solutions for hints and
+   * its perfect count (D-089). Without it, the first hint solves synchronously.
    */
-  solveAsync: ((level: LevelData) => Promise<Solution[]>) | null = null;
+  solveAsync: ((level: LevelData) => Promise<PlaySolve>) | null = null;
   /** A hint was asked for and waits for the solutions. */
   hintPending = false;
 
   private history!: History<Board>;
   private start!: Board;
   private counter = new MoveCounter();
-  private perfectCount: number | null | undefined;
-  private solutions: Solution[] | null = null;
+  /** The level solved for play: hint solutions and the perfect count, once known. */
+  private played: PlaySolve | null = null;
   private solving: LevelData | null = null;
   private solveToken = 0;
   private listeners = new Set<(e: GameEvent) => void>();
@@ -84,8 +83,7 @@ export class Game {
     this.level = this.levels[this.index]!;
     const b = parseLevel(this.level);
     this.start = b.clone();
-    this.solutions = null;
-    this.perfectCount = undefined;
+    this.played = null;
     this.counter = new MoveCounter(); // starting a level again is the only way back to 0 (D-079)
     this.solving = null;
     this.hintPending = false;
@@ -101,16 +99,16 @@ export class Game {
 
   /** Start finding the current level's solutions in the background, if a worker is available. */
   prepareHints(): void {
-    if (!this.solveAsync || this.solutions || this.solving === this.level) return;
+    if (!this.solveAsync || this.played || this.solving === this.level) return;
     const level = this.level;
     this.solving = level;
     // Only the newest request counts: an older one may still answer (or fail as
     // cancelled, D-077), even for this same level loaded a second time.
     const token = ++this.solveToken;
-    const done = (s: Solution[] | null) => {
+    const done = (p: PlaySolve | null) => {
       if (token !== this.solveToken || this.level !== level) return;
       this.solving = null;
-      this.solutions = s ?? solve(this.start, HINT_SOLVE).solutions;
+      this.played = p ?? solveForPlay(this.start);
       this.emit('solutions');
       if (this.hintPending) {
         this.hintPending = false;
@@ -148,16 +146,21 @@ export class Game {
 
   /**
    * The fewest moves that solve the level (D-080), or null until its
-   * solutions are known (the 'solutions' event says when). Without a worker
-   * it solves here, as the first hint does.
+   * solutions are known (the 'solutions' event says when), or if the solver
+   * couldn't prove a minimum (see `perfectEstimate`). Without a worker it
+   * solves here, as the first hint does.
    */
   get perfect(): number | null {
-    if (this.perfectCount === undefined) {
-      if (!this.solutions && this.solveAsync) return null;
-      this.solutions ??= solve(this.start, HINT_SOLVE).solutions;
-      this.perfectCount = perfectMoves(this.start, this.solutions);
-    }
-    return this.perfectCount;
+    if (!this.played && !this.solveAsync) this.played = solveForPlay(this.start);
+    return this.played?.exact ? this.played.perfect : null;
+  }
+
+  /**
+   * The fewest moves found when the search stopped before checking every
+   * solution: an estimate, shown as "perfect ~6", never saved and never ◎ (D-089).
+   */
+  get perfectEstimate(): number | null {
+    return this.played && !this.played.exact ? this.played.perfect : null;
   }
 
   /**
@@ -227,18 +230,18 @@ export class Game {
    */
   hint(): Hint | null {
     if (this.solved) return null;
-    if (!this.solutions && this.solveAsync) {
+    if (!this.played && this.solveAsync) {
       this.prepareHints();
       this.hintPending = true;
       this.lastAction = 'hint';
       this.emit('change');
       return null;
     }
-    if (!this.solutions) {
-      this.solutions = solve(this.start, HINT_SOLVE).solutions;
+    if (!this.played) {
+      this.played = solveForPlay(this.start);
       this.emit('solutions');
     }
-    this.hintShown = nextHint(this.start, this.board, this.solutions);
+    this.hintShown = nextHint(this.start, this.board, this.played.solutions);
     if (this.hintShown) this.hintsUsed++;
     this.lastAction = 'hint';
     this.emit('change');

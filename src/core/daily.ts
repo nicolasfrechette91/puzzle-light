@@ -61,6 +61,10 @@ export function streakAfterSolve(s: StreakState, date: string): StreakState {
   return { last: date, current, best: Math.max(s.best, current) };
 }
 
+/** The streak that a set of solved dates adds up to, oldest first (for merging a backup, D-091). */
+export const streakFromDates = (dates: readonly string[]): StreakState =>
+  [...new Set(dates)].sort().reduce<StreakState>((s, d) => streakAfterSolve(s, d), { current: 0, best: 0 });
+
 /** The streak as it stands on `today` (it lapses after a missed day). */
 export function streakOn(s: StreakState, today: string): number {
   if (!s.last) return 0;
@@ -91,6 +95,23 @@ export function formatTime(ms: number): string {
 export function movesVerdict(r: Pick<DailyResult, 'moves' | 'perfect' | 'hints'>): string {
   const perfect = isPerfect(r.hints ? { moves: r.moves, hinted: true } : { moves: r.moves }, r.perfect);
   return `${plural(r.moves, 'move')} (${perfect ? `${PERFECT_MARK} perfect` : `perfect ${r.perfect}`})`;
+}
+
+/**
+ * The daily's status line while it is played (D-090). `text` sits in the
+ * page's live region, so it changes only when there is news; `clock` ticks
+ * every second beside it and is never announced. `elapsedMs` is null until
+ * the first move starts the clock.
+ */
+export function dailyStatus(perfect: number, elapsedMs: number | null): { text: string; clock: string | null } {
+  return elapsedMs === null
+    ? { text: `Perfect is ${perfect} moves. The clock starts with your first move.`, clock: null }
+    : { text: `perfect ${perfect}`, clock: formatTime(elapsedMs) };
+}
+
+/** The daily's words in the solved banner, which is announced once: the time and the streak (D-090). */
+export function dailySolvedNote(r: Pick<DailyResult, 'timeMs'>, streak: number): string {
+  return `${formatTime(r.timeMs)}${streak > 1 ? ` · 🔥 ${streak}` : ''}`;
 }
 
 const SQUARE = ['⬛', '🟨', '🟩'] as const;

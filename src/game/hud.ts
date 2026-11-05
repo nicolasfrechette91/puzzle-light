@@ -17,6 +17,8 @@ export interface ModeHooks {
   labelPrefix?: string;
   /** Shown in the status line while playing (after hints and notices). */
   status?: () => string | null;
+  /** A clock beside the status line (the daily). It ticks outside the live region, so it is never announced (D-090). */
+  clock?: () => string | null;
   /** Words added to the solved banner after the move count (time, streak, …). */
   solvedNote?: () => string | null;
   /** Replaces "Next level". */
@@ -50,11 +52,15 @@ export class Hud {
   private summary: SolveSummary | null = null;
   /** The level has been solved since it was started, so the counter may show. */
   private solvedOnce = false;
+  /** What the solved banner last said, so an unchanged banner isn't rebuilt (and re-announced). */
+  private bannerKey = '';
   private readonly el = {
     title: $('#play-view .title'),
     num: $('#level-num'),
     moves: $('#moves'),
     movesInline: $('#moves-inline'),
+    clock: $('#clock'),
+    clockInline: $('#clock-inline'),
     name: $('#level-name'),
     note: $('#note'),
     noteText: $('#note-text'),
@@ -100,7 +106,7 @@ export class Hud {
     window.addEventListener('resize', () => this.placeCounter());
     game.on((e) => {
       if (e === 'level') {
-        this.notice = this.bannerNote = '';
+        this.notice = this.bannerNote = this.bannerKey = '';
         this.summary = null;
         this.solvedOnce = false;
       }
@@ -213,7 +219,7 @@ export class Hud {
     el.sound.title = on ? 'Sound on (M)' : 'Sound off (M)';
     el.sound.setAttribute('aria-pressed', String(on));
     el.name.textContent = g.level.name;
-    el.moves.textContent = el.movesInline.textContent = plural(g.moves, 'move');
+    setText(el.moves, plural(g.moves, 'move'));
     el.moves.hidden = el.movesInline.hidden = this.movesAfterSolve() && !this.solvedOnce;
     this.placeCounter();
     document.title = `${g.level.name} · Puzzle Light`;
@@ -223,14 +229,23 @@ export class Hud {
     el.redo.disabled = !g.canRedo;
     el.hint.disabled = g.solved;
 
-    el.noteText.textContent = g.hintShown ? describeHint(g, g.hintShown) : g.hintPending ? 'Looking for a hint…' : this.notice || this.hooks.status?.() || (g.level.note ?? '');
+    // The status line is a live region: write it only when its words change, or
+    // screen readers may read the same line again. The clock ticks outside it (D-090).
+    const note = g.hintShown ? describeHint(g, g.hintShown) : g.hintPending ? 'Looking for a hint…' : this.notice || this.hooks.status?.() || (g.level.note ?? '');
+    const clock = g.solved ? '' : (this.hooks.clock?.() ?? '');
+    setText(el.noteText, note);
+    // The phone counter and the clock lead the line and carry their own " · ",
+    // so the separators stay outside what is announced too.
+    setText(el.movesInline, `${plural(g.moves, 'move')}${clock || note ? ' · ' : ''}`);
+    setText(el.clockInline, clock && note ? `${clock} · ` : clock);
+    setText(el.clock, clock ? `Time ${clock}` : '');
     el.note.classList.toggle('hinting', !!g.hintShown || g.hintPending);
     el.note.hidden = g.solved;
     el.skip.hidden = g.solved || !this.hooks.skip;
     el.solved.hidden = !g.solved;
     if (g.solved) {
       const summary = this.summary ?? { moves: g.moves, hints: g.hintsUsed, newBest: false };
-      const parts: BannerPart[] = solveParts(summary, g.perfect);
+      const parts: BannerPart[] = solveParts(summary, g.perfect, g.perfectEstimate);
       const par = g.level.par;
       const used = g.piecesUsed;
       // Par counts pieces, not moves, so it keeps its own ✦ (D-080).
@@ -240,18 +255,29 @@ export class Hud {
       const lock = campaign ? this.lockNote() : null;
       if (lock) parts.push({ text: lock });
       if (this.bannerNote) parts.push({ text: this.bannerNote });
-      el.solvedText.replaceChildren(
-        ...parts.flatMap((p, i) => {
-          const span = Object.assign(document.createElement('span'), { textContent: p.text });
-          if (p.mark) span.className = `mark-${p.mark}`;
-          return i ? [' · ', span] : [span];
-        }),
-      );
+      // Rebuilt only when it says something new, so it is announced once (D-090).
+      const key = JSON.stringify(parts);
+      if (key !== this.bannerKey) {
+        this.bannerKey = key;
+        el.solvedText.replaceChildren(
+          ...parts.flatMap((p, i) => {
+            const span = Object.assign(document.createElement('span'), { textContent: p.text });
+            if (p.mark) span.className = `mark-${p.mark}`;
+            if (p.title) span.title = p.title;
+            return i ? [' · ', span] : [span];
+          }),
+        );
+      }
       const action = this.hooks.action?.();
       el.cont.textContent = action ? action.label : 'Next level';
       el.cont.hidden = action ? false : !g.hasNext || !campaign;
     }
   }
+}
+
+/** Write text only if it differs: a rewrite of the same words can still be announced in a live region. */
+function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
 }
 
 function describeHint(g: Game, h: Hint): string {

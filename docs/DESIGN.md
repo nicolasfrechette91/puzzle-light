@@ -54,6 +54,7 @@ src/
     daily-store.ts      daily results, streak, today's cached level
     endless-store.ts    endless progress per tier
     progress.ts         solved levels, par bests and move bests (campaign ids, generated ids)
+    backup.ts           progress backup: the file format, reading it, merging it into the stores
     settings.ts         display settings: colour symbols, reduce motion, move counter
   editor/               level editor (lazy-loaded)
     model.ts            DOM-free editable level with undo; problem() explains what's missing
@@ -274,10 +275,12 @@ fewest decisions), the minimum pieces, the states explored and
 * **A move** is placing, moving or removing a piece, or a run of turns of the
   same piece (grouped as undo groups them). Undo, redo and reset end a run but
   never change the count; starting the level again sets it to 0 (D-079).
-* **Perfect** is the fewest moves over the solver's solutions: one per tray
-  piece placed, one per piece that must turn (whatever the angle), one per
-  movable piece that must move or be cleared away (D-080). `npm run levels`
-  shows it and fails if the solutions hints keep would give a different number.
+* **Perfect** is the fewest moves over every solution the solver finds
+  (`solveForPlay`, D-089): one per tray piece placed, one per piece that must
+  turn (whatever the angle), one per movable piece that must move or be
+  cleared away (D-080). If the search runs out of budget it is only an
+  estimate, shown as "perfect ~6". `npm run levels` shows it for every level
+  and fails if the game's own solve would give a different or estimated number.
 * **Bests** are saved per level in the progress record, keyed by id or by
   generator id; a hinted solve is marked and never replaces an unhinted one
   (D-081). The HUD and the level select show them quietly (D-082), with a key

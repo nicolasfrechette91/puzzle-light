@@ -1,5 +1,5 @@
 import './style.css';
-import { DAILY_TIER, dailyNumber, dailySeed, formatTime, movesVerdict, shareText, type DailyResult } from './core/daily';
+import { DAILY_TIER, dailyNumber, dailySeed, dailySolvedNote, dailyStatus, formatTime, movesVerdict, shareText, type DailyResult } from './core/daily';
 import { endlessSeed } from './core/endless';
 import { generatedId, TIERS, type Tier } from './core/generate';
 import type { LevelData } from './core/level';
@@ -10,6 +10,7 @@ import { DailyStore, todayLocal, untilTomorrow } from './game/daily-store';
 import { EndlessStore } from './game/endless-store';
 import type { GenOutput } from './game/generate.worker';
 import { generator, hintSolver, WorkerFailure } from './game/worker-client';
+import { BACKUP_MAX_BYTES, backupFileName, describeRestore, makeBackup, readBackup, restoreBackup, TOO_LARGE } from './game/backup';
 import { Game } from './game/game';
 import { Hud, type ModeHooks } from './game/hud';
 import { Input } from './game/input';
@@ -135,17 +136,15 @@ const prettyDate = (date: string) => {
 function dailyHooks(s: DailySession): ModeHooks {
   return {
     label: () => `Daily #${dailyNumber(s.date)} · ${prettyDate(s.date)}`,
+    // The move count itself is the HUD counter, which the player may hide until solved (D-082);
+    // the time ticks beside the status line but is announced only in the solved banner (D-090).
     status: () => {
       const stored = daily.result(s.date);
       if (stored && !s.result) return `Solved today in ${stored.moves} moves; replays don't change your result.`;
-      // The move count itself is the HUD counter, which the player may hide until solved (D-082).
-      return s.started ? `${formatTime(elapsed(s))} · perfect ${s.perfect}` : `Perfect is ${s.perfect} moves. The clock starts with your first move.`;
+      return dailyStatus(s.perfect, s.started ? elapsed(s) : null).text;
     },
-    solvedNote: () => {
-      if (!s.result) return null; // a replay: the first solve of the day stays the result
-      const streak = daily.streak(s.date);
-      return `${formatTime(s.result.timeMs)}${streak > 1 ? ` · 🔥 ${streak}` : ''}`;
-    },
+    clock: () => (s.result || !s.started || daily.result(s.date) ? null : dailyStatus(s.perfect, elapsed(s)).clock),
+    solvedNote: () => (s.result ? dailySolvedNote(s.result, daily.streak(s.date)) : null), // a replay: the first solve stays the result
     action: () => ({ label: Date.now() < s.copiedUntil ? 'Copied ✓' : 'Share result', run: () => void shareDaily(s) }),
   };
 }
@@ -343,6 +342,7 @@ game.on((e) => {
         if (!s.started) {
           s.started = true;
           s.runningSince = document.hidden ? null : performance.now();
+          hud.refresh(); // the status line drops "the clock starts…" now, not a tick later
         }
         s.progress.push(square);
       } else if (game.lastAction === 'rotate' && s.progress.length) {
@@ -401,6 +401,7 @@ hud.soundOn = () => sound.enabled;
 hud.onSound = () => sound.toggle();
 hud.onLevels = () => {
   syncSoundButton();
+  backupStatus.textContent = ''; // an old export or import message
   select.open();
 };
 hud.lockNote = () => {
@@ -457,6 +458,35 @@ applySettings();
 symbolsButton.addEventListener('click', () => (settings.symbols = !settings.symbols));
 motionButton.addEventListener('click', () => (settings.reduceMotion = !settings.reduceMotion));
 movesButton.addEventListener('click', () => (settings.movesAfterSolve = !settings.movesAfterSolve));
+
+// ── progress backup: export a file, import one back (D-091) ──
+const backupStatus = document.querySelector<HTMLElement>('#backup-status')!;
+const backupFile = document.querySelector<HTMLInputElement>('#backup-file')!;
+document.querySelector('#backup-export')!.addEventListener('click', () => {
+  const name = backupFileName(todayLocal());
+  const blob = new Blob([JSON.stringify(makeBackup({ progress, daily, endless }), null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  backupStatus.textContent = `Saved ${name}.`;
+});
+document.querySelector('#backup-import')!.addEventListener('click', () => backupFile.click());
+backupFile.addEventListener('change', async () => {
+  const file = backupFile.files?.[0];
+  backupFile.value = ''; // the same file can be picked again
+  if (!file) return;
+  const read = file.size > BACKUP_MAX_BYTES ? ({ ok: false, reason: TOO_LARGE } as const) : readBackup(await file.text());
+  if (!read.ok) {
+    backupStatus.textContent = read.reason;
+    return;
+  }
+  backupStatus.textContent = describeRestore(restoreBackup({ progress, daily, endless }, read.sections));
+  select.refresh();
+  hud.refresh();
+});
 
 select.daily = () => {
   const date = todayLocal();

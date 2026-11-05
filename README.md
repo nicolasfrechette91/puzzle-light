@@ -21,7 +21,9 @@ phone, nothing to install).
 * **[Move tracker](#moves):** a quiet move count, your best per level and
   each level's perfect score.
 * **[Accessibility](#accessibility):** colour symbols, reduced motion,
-  full keyboard play.
+  full keyboard play, a screen-reader-friendly status line.
+* **[Progress backup](#progress-backup):** export your progress as a file and
+  import it on another device.
 * Calm by design: no timers outside the daily, no lives, no pressure cues.
   Synthesised sound, art drawn in code.
 
@@ -75,6 +77,9 @@ the fewest moves for every level, its **perfect** score:
 Solved in 9 moves · best 7 · perfect 6
 ```
 
+On a huge editor level the solver may stop before checking every solution;
+then perfect is shown as an estimate, `perfect ~6`.
+
 Your best is saved per level and shown under each level in the level select,
 with a one-line key under **Options** (and a tooltip on every mark):
 
@@ -117,7 +122,18 @@ Open the level select's **Options** row:
   you play.
 
 The whole game can be played by keyboard (arrows and Space on the board, Tab
-through the controls), with a visible focus ring everywhere.
+through the controls), with a visible focus ring everywhere. Screen readers
+hear hints and the solved banner; the daily's ticking clock stays quiet
+until the solve announces your time.
+
+## Progress backup
+
+Progress is saved in your browser. **Options → Export progress** downloads it
+as a small JSON file (`puzzle-light-progress-<date>.json`): solved levels, ✦
+and move bests, daily results and streak, and endless progress.
+**Import progress** adds a file back, on this device or another. It merges:
+anything the file has that this device doesn't is added, and nothing here is
+lost or made worse. Editor levels have their own export in the editor.
 
 ## Daily puzzle
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseLevel } from '../src/core/level';
-import { beats, isPerfect, MoveCounter, perfectMoves, solutionMoves, solveParts, type SolveSummary } from '../src/core/moves';
+import { beats, isPerfect, MoveCounter, perfectMoves, solutionMoves, solveForPlay, solveParts, type SolveSummary } from '../src/core/moves';
 import { canMove } from '../src/core/piece';
-import { solve, type Solution } from '../src/core/solver';
+import { HINT_SOLVE, solve, type Solution } from '../src/core/solver';
 import { slotKey } from '../src/core/token';
 import { Game } from '../src/game/game';
 import { ALL_LEVELS } from '../src/levels';
@@ -163,6 +163,40 @@ describe('perfect (D-080)', () => {
       expect(g.moves, level.id).toBe(perfectMoves(start, sols));
     }
   }, 60_000);
+});
+
+describe('perfect beyond the 50 solutions hints keep (D-089)', () => {
+  // A 4×4 block of turnable mirrors: 1,664 solutions. The cheapest, one tray
+  // mirror dropped in the corner as it comes (1 move), sorts far behind the
+  // first 50, which all route through the block and turn two or more mirrors.
+  const block = { id: 'block', name: 'Block', bends: 90 as const, inv: { M2: 1 }, grid: ['Er0 M0~ M0~ M0~ M0~ .', '.   M0~ M0~ M0~ M0~ .', '.   M0~ M0~ M0~ M0~ .', '.   M0~ M0~ M0~ M0~ Tr'] };
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  it('is the minimum over every solution, not just the kept ones', () => {
+    const b = parseLevel(block);
+    const played = solveForPlay(b);
+    expect(played.solutions).toHaveLength(50);
+    expect(perfectMoves(b, played.solutions)).toBe(2); // what the game used to show
+    expect(played).toMatchObject({ perfect: 1, exact: true });
+    const g = new Game([block], 0); // no worker: the game solves here
+    expect(g.perfect).toBe(1);
+    expect(g.perfectEstimate).toBeNull();
+  });
+
+  it('is only an estimate when the search stops early: shown as ~, never ◎ or saved', async () => {
+    const played = solveForPlay(parseLevel(block), { ...HINT_SOLVE, maxNodes: 3000 });
+    expect(played.exact).toBe(false);
+    expect(played.perfect).not.toBeNull();
+    const g = new Game([block], 0);
+    g.solveAsync = () => Promise.resolve(played);
+    g.prepareHints();
+    await flush();
+    expect(g.perfect).toBeNull(); // what bests save and ◎ needs
+    expect(g.perfectEstimate).toBe(played.perfect);
+    const parts = solveParts({ moves: 1, hints: 0, newBest: false }, g.perfect, g.perfectEstimate);
+    expect(parts.map((p) => p.text)).toEqual(['Solved in 1 move', `perfect ~${played.perfect}`]);
+    expect(parts[1]!.title).toMatch(/estimate/);
+  });
 });
 
 describe('bests (D-081)', () => {

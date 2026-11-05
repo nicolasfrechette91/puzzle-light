@@ -23,8 +23,8 @@ by a short summary with the new decision entries.
 ## State of the project (v1.0.0)
 
 Start here in a fresh session. Every milestone above is done, plus the
-audit, the move tracker and the v1.0 wrap-up below. This is release 1.0.0;
-its note is in [RELEASES.md](RELEASES.md).
+audit, the move tracker, the v1.0 wrap-up and the first three post-1.0 ideas
+(below). Release 1.0.0's note is in [RELEASES.md](RELEASES.md).
 
 **Live.** <https://nicolasfrechette91.github.io/puzzle-light/>. Every push to
 `main` runs `.github/workflows/deploy.yml`: tests, `npm run levels`, build,
@@ -39,7 +39,9 @@ reach `github.io` directly. `ci.yml` runs the same checks on every branch.
   generated.
 * The level editor, with a solver check and share links.
 * The move tracker: counter, bests, perfect.
-* Colour symbols, reduce motion, keyboard play and synthesised sound.
+* Progress backup: export a JSON file and import it back, merged (D-091).
+* Colour symbols, reduce motion, keyboard play, a quiet live region (the daily
+  clock isn't announced, D-090) and synthesised sound.
 
 **Where things live.** [DESIGN.md](DESIGN.md) maps every file. In short:
 * `src/core/` is pure, with no DOM, timers or randomness. It holds the
@@ -49,10 +51,11 @@ reach `github.io` directly. `ci.yml` runs the same checks on every branch.
 * `src/editor/` is loaded on demand; `src/levels/` holds the worlds as JSON.
 
 **Checks.**
-* `npm test`: 258 tests across 22 files, about 4 s.
+* `npm test`: 268 tests across 23 files, about 4 s.
 * `npm run levels`: all 56 levels, about 3 s. It shows solutions, minimum
-  pieces, par, perfect and difficulty for each level.
-* `npm run build`: typecheck plus the bundle. Main is 102 kB (35 kB gzip),
+  pieces, par, perfect and difficulty for each level, and fails if the game's
+  own solve would show a wrong or estimated perfect.
+* `npm run build`: typecheck plus the bundle. Main is 106 kB (36 kB gzip),
   the editor 19 kB, the workers 11–23 kB.
 * Browser checks: in `npm run dev`, `window.__pl` exposes the game, input,
   layout, select, settings and stores. `scripts/media/capture.cjs` shows how
@@ -72,7 +75,7 @@ store checking every field it reads, D-071):
 | `puzzle-light:draft`, `puzzle-light:my-levels` | the editor |
 
 **How work is done.** Follow [DECISIONS.md](DECISIONS.md): decide routine
-choices by its policy, log each one (the last entry is D-088), and ask the
+choices by its policy, log each one (the last entry is D-091), and ask the
 owner only about scope or feel changes or anything irreversible. Before
 committing, run `npm test`, `npm run build` and `npm run levels`. At the end,
 push the development branch and `main`, confirm CI and the deploy, and post a
@@ -82,10 +85,12 @@ summary with the new entries.
 * `GENERATOR_VERSION` (now 2) pins every daily and endless level. Bumping it
   changes all of them, and saved bests and the endless history for the old
   version are no longer used (D-050, D-073).
-* The game works out perfect from the ≤50 solutions the hint solve keeps.
-  `npm run levels` proves that's exact for the bundled levels, but an editor
-  or shared level with more than 50 solutions could show a perfect that is
-  too high.
+* Perfect is the minimum over every solution the hint solve finds
+  (`solveForPlay`, D-089). If that search hits its 2M-state budget (only huge
+  editor levels do), the banner shows an estimate, "perfect ~6", which earns
+  no ◎ and isn't saved.
+* The status line is a live region: write it only when its words change
+  (the HUD's `setText`), and keep anything that ticks out of it (D-090).
 * Test and shared levels don't save bests (D-081).
 * Daily results from 2026-11-04 and 05 may predate the move tracker and use
   the old count (D-083).
@@ -95,30 +100,27 @@ summary with the new entries.
 Nothing here is promised; each would go through the decision policy. Items
 that change the game's feel need the owner's yes first.
 
-1. **The daily clock talks too much to screen readers.** The status line is
-   `aria-live`, and the daily's time updates in it every second. Move the
-   ticking time out of the live region, or announce it only on solve. Small,
-   and a real accessibility fix (`dailyHooks` in `main.ts`, `index.html`).
-2. **Perfect for any level.** Have the hint worker return the minimum moves
-   over *all* solutions, not just the 50 it keeps, so editor and shared
-   levels are exact too. Show perfect in the editor's solver panel, which
-   already solves.
-3. **Progress backup.** Export and import of the progress record as JSON,
-   like editor levels, since localStorage is per device and per browser.
-4. **Installable and offline.** A web manifest and a service worker that
+The first three ideas from v1.0 are done (see "After v1.0" below).
+
+1. **Installable and offline.** A web manifest and a service worker that
    caches the build, so it works as a home-screen app. Cache-busting must
    respect D-072 (stale workers after a redeploy).
-5. **Resume mid-level.** Keep the board (and the move count) of an unsolved
+2. **Resume mid-level.** Keep the board (and the move count) of an unsolved
    level across a reload. Today a reload restarts the level at 0 moves.
-6. **An Expert endless tier with portals.** D-052 left portals out of the
+3. **Perfect in the editor.** The editor's solver panel already solves each
+   draft; show its perfect count there (`perfectMoves` over its solutions,
+   marked as an estimate when the 8 s check stops early), so designers see it
+   before sharing.
+4. **An Expert endless tier with portals.** D-052 left portals out of the
    generator because construction gets non-local. Needs measured generation
    times, like D-073.
-7. **More hand-made content.** A seventh world or a second Expert pack, made
+5. **More hand-made content.** A seventh world or a second Expert pack, made
    the D-027 way and ordered by difficulty (D-025).
-8. **Tidy-ups.** `docs/media/fan-and-fork.webp` isn't used anywhere. The
+6. **Tidy-ups.** `docs/media/fan-and-fork.webp` isn't used anywhere. The
    `?l=` development switch opens every world, which is easy to forget.
-9. **Translations.** UI strings are inline English in `hud.ts`, `main.ts`,
-   `level-select.ts` and the editor; pulling them into one table comes first.
+7. **Translations.** UI strings are inline English in `hud.ts`, `main.ts`,
+   `level-select.ts`, `backup.ts` and the editor; pulling them into one table
+   comes first.
 
 ## M1: delivered
 
@@ -419,6 +421,22 @@ Asked by the owner after the move tracker (D-084 to D-088):
 * **v1.0.0:** the version, and a release note listing the milestones in
   [RELEASES.md](RELEASES.md). The session couldn't push the `v1.0.0` tag;
   the owner adds it (D-088).
+
+## After v1.0
+
+The top three roadmap ideas, done at the owner's request (D-089 to D-091):
+
+* **The daily clock is quiet for screen readers** (D-090). The time ticks
+  beside the status line but outside what is announced; the live text is
+  just "perfect 6", and the solve banner announces the time once. Checked
+  with accessibility snapshots in Chromium: no live changes while ticking.
+* **Perfect is exact for any level** (D-089). The minimum over every
+  solution found, not the 50 hints keep; a real 1,664-solution level showed
+  2 where 1 was possible. An estimate ("perfect ~6", no ◎, not saved) only
+  if the search runs out of budget.
+* **Progress backup** (D-091). Options → Export progress downloads a JSON
+  file, and Import progress merges one back, cleaned like saved data: nothing
+  on the device is ever lost or worsened.
 
 ## Open questions for the owner
 

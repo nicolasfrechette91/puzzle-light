@@ -230,9 +230,19 @@ body {
   white-space: nowrap;
 }
 
-.moves-in-status .moves-inline:not([hidden]) + #note-text:not(:empty)::before {
-  content: ' · ';
-  color: var(--muted);
+/* The daily clock: shown on the status line, but outside what screen readers announce (D-090). */
+.clock-inline {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Read on demand by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .pill {
@@ -771,6 +781,18 @@ body {
   flex-wrap: wrap;
   gap: 6px;
   padding: 0 16px 10px;
+}
+
+/* What an export or import just did (D-091); empty most of the time. */
+.backup-status {
+  margin: -4px 0 0;
+  padding: 0 16px 8px;
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.backup-status:empty {
+  display: none;
 }
 
 /* The key to the tile marks (D-085): one quiet line, wrapping between entries. */

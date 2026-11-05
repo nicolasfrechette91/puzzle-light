@@ -1,6 +1,6 @@
 import type { Board } from './board';
 import { KINDS, type Piece } from './piece';
-import { applySolution, type Solution } from './solver';
+import { applySolution, HINT_SOLVE, solve, type Solution, type SolveOptions } from './solver';
 import { slotKey } from './token';
 import { trace } from './trace';
 
@@ -144,6 +144,27 @@ export function perfectMoves(start: Board, solutions: readonly Pick<Solution, 'p
   return Number.isFinite(min) ? min : null;
 }
 
+/** What playing a level needs from one solve (D-089). */
+export interface PlaySolve {
+  /** The best solutions, as many as hints keep (fewest pieces first). */
+  solutions: Solution[];
+  /** The fewest moves over every solution found, not just the kept ones; null if none was found. */
+  perfect: number | null;
+  /** The search finished, so `perfect` is the true minimum; otherwise it is only the best known (an estimate). */
+  exact: boolean;
+}
+
+/**
+ * Solve a level for play: hints keep the best few solutions, but perfect is
+ * the minimum over all of them. The fewest-move solution can sort far behind
+ * the first 50 (it may use more pieces but turn none), and scanning every
+ * solution costs little next to the search itself (D-089).
+ */
+export function solveForPlay(start: Board, opts: SolveOptions = HINT_SOLVE): PlaySolve {
+  const r = solve(start, { ...opts, maxSolutions: Infinity });
+  return { solutions: r.solutions.slice(0, opts.maxSolutions ?? 20), perfect: perfectMoves(start, r.solutions), exact: r.complete };
+}
+
 // ── bests (D-081) ──
 
 /** A saved best: the fewest moves, and whether that solve used a hint. */
@@ -179,20 +200,30 @@ export interface SolveSummary {
 export interface BannerPart {
   text: string;
   mark?: 'perfect' | 'best';
+  /** A tooltip, where the words need explaining. */
+  title?: string;
 }
+
+/** Why a perfect count can be approximate (D-089). */
+export const ESTIMATE_TIP = 'An estimate: this level has too many ways to solve it for the solver to check them all';
 
 /** The perfect mark (D-082). */
 export const PERFECT_MARK = '◎';
 
 export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-/** "Solved in 9 moves · best 7 · perfect 6", as parts. */
-export function solveParts(s: SolveSummary, perfect: number | null): BannerPart[] {
+/**
+ * "Solved in 9 moves · best 7 · perfect 6", as parts. `estimate` is the best
+ * known count when the solver couldn't prove a minimum: it reads "perfect ~6"
+ * and never earns ◎ (D-089).
+ */
+export function solveParts(s: SolveSummary, perfect: number | null, estimate: number | null = null): BannerPart[] {
   const hinted = s.hints > 0;
   const parts: BannerPart[] = [{ text: `Solved in ${plural(s.moves, 'move')}${hinted ? (s.hints === 1 ? ' with a hint' : ' with hints') : ''}` }];
   if (isPerfect({ moves: s.moves }, perfect) && !hinted) return [...parts, { text: `${PERFECT_MARK} perfect`, mark: 'perfect' }];
   if (s.newBest) parts.push({ text: 'new best', mark: 'best' });
   else if (s.before) parts.push({ text: `best ${s.before.moves}${s.before.hinted ? ' with a hint' : ''}` });
   if (perfect !== null) parts.push({ text: `perfect ${perfect}` });
+  else if (estimate !== null) parts.push({ text: `perfect ~${estimate}`, title: ESTIMATE_TIP });
   return parts;
 }

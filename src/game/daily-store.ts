@@ -1,4 +1,4 @@
-import { type DailyResult, isDate, streakAfterSolve, streakOn, type StreakState } from '../core/daily';
+import { type DailyResult, isDate, streakAfterSolve, streakFromDates, streakOn, type StreakState } from '../core/daily';
 import { GENERATOR_VERSION } from '../core/generate';
 import { checkLevelData, parseLevel, type LevelData } from '../core/level';
 import { isCount, isRecord, readJson as read, removeKeys, writeJson as write } from './local-store';
@@ -78,6 +78,32 @@ export class DailyStore {
 
   get best(): number {
     return this.data.streak.best;
+  }
+
+  /** A copy of the results and streak, for a backup (D-091). */
+  snapshot(): Stored {
+    return structuredClone(this.data);
+  }
+
+  /**
+   * Merge a backup's results, cleaned as saved data is (D-071). Each date keeps
+   * the result already here (the first completion this device saw); the
+   * streak is worked out again from every solved date, and the best streak is
+   * the longest anyone recorded. Returns how many dates were added.
+   */
+  merge(raw: unknown): number {
+    const incoming = clean(raw);
+    let added = 0;
+    for (const [date, r] of Object.entries(incoming.results)) {
+      if (this.data.results[date]) continue;
+      this.data.results[date] = r;
+      added++;
+    }
+    const streak = streakFromDates(Object.keys(this.data.results));
+    streak.best = Math.max(streak.best, this.data.streak.best, incoming.streak.best);
+    this.data.streak = streak;
+    write(KEY, this.data);
+    return added;
   }
 
   /** Keep the first completion of a date; returns the result that counts. */

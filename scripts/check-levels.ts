@@ -8,13 +8,13 @@
  *
  * Fails (exit 1) when a level does not parse, starts solved, has no solution,
  * cannot be fully searched within its time limit, has a par below the true
- * minimum, or would show the wrong perfect move count (the game works it out
- * from the solutions hints keep). Warns when a level has several solutions or
- * a generous par.
+ * minimum, or would show a wrong or estimated perfect move count (the game
+ * works it out with the hint budget). Warns when a level has several
+ * solutions or a generous par.
  */
 import { parseLevel, type LevelData } from '../src/core/level';
-import { perfectMoves } from '../src/core/moves';
-import { HINT_SOLVE, solve, type SolveResult } from '../src/core/solver';
+import { perfectMoves, solveForPlay } from '../src/core/moves';
+import { solve, type SolveResult } from '../src/core/solver';
 import { trace } from '../src/core/trace';
 import { PACKS } from '../src/levels';
 
@@ -90,12 +90,13 @@ function check(level: LevelData, limitMs: number): Row {
   }
   row.min = String(r.minPieces);
   row.difficulty = r.difficulty.toFixed(1);
-  // Perfect is the fewest moves over every solution (D-080). The game only has
-  // the solutions hints keep (best first), so those must give the same number.
+  // Perfect is the fewest moves over every solution (D-080). The game's own
+  // solve (hint budget, D-089) must finish, so it shows the same exact number.
   const perfect = perfectMoves(board, r.solutions);
-  const kept = perfectMoves(board, r.solutions.slice(0, HINT_SOLVE.maxSolutions));
+  const played = solveForPlay(board);
   row.perfect = String(perfect);
-  if (kept !== perfect) row.errors.push(`the game would show perfect ${kept}, but ${perfect} moves is possible`);
+  if (!played.exact) row.errors.push(`the game's solve stops early, so it would show perfect as an estimate (~${played.perfect})`);
+  else if (played.perfect !== perfect) row.errors.push(`the game would show perfect ${played.perfect}, but ${perfect} moves is possible`);
   // A par level may have longer solutions; it is the par-length one that should be unique.
   const relevant = level.par === undefined ? r.solutions : r.solutions.filter((s) => s.pieces === r.minPieces);
   if (relevant.length > 1) {
